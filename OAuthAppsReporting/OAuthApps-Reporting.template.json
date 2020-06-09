@@ -1,0 +1,596 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "OAuthApps-Reporting",
+            "type": "String"
+        },
+        "logAnalytics_id": {
+            "type": "String",
+            "metadata": {
+                "description": "Log analytics id property"
+            }
+        },
+        "logAnalytics_connectionId": {
+            "type": "String",
+            "metadata": {
+                "description": "Log analytics id property"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for Logic App resources"
+            }
+        },
+        "tenantId": {
+            "type": "string",
+            "defaultValue": "[subscription().tenantId]"
+        },
+        "clientId": {
+            "type": "securestring",
+            "defaultValue": "my_clientId"
+        },
+        "secret": {
+            "type": "securestring"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "semolend"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Compose_JSON": {
+                            "runAfter": {
+                                "For_each_enterprise_app": [
+                                    "Succeeded"
+                                ],
+                                "Parse_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": "@variables('enterpriseApps')"
+                        },
+                        "For_each_enterprise_app": {
+                            "foreach": "@body('Parse_enterprise_apps')?['value']",
+                            "actions": {
+                                "Append_to_array_variable": {
+                                    "runAfter": {
+                                        "Compose_app_details": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "enterpriseApps",
+                                        "value": "@outputs('Compose_app_details')"
+                                    }
+                                },
+                                "Compose_app_details": {
+                                    "runAfter": {
+                                        "Get_enterprise_app_users": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": {
+                                        "accountEnabled": "@items('For_each_enterprise_app')?['accountEnabled']",
+                                        "alternativeNames": "@items('For_each_enterprise_app')?['alternativeNames']",
+                                        "appDescription": "@items('For_each_enterprise_app')?['appDescription']",
+                                        "appDisplayName": "@items('For_each_enterprise_app')?['appDisplayName']",
+                                        "appId": "@items('For_each_enterprise_app')?['appId']",
+                                        "appIsForeign": "@not(equals(items('For_each_enterprise_app')?['appOwnerOrganizationId'], variables('tenantId')))",
+                                        "appOwnerOrganizationId": "@items('For_each_enterprise_app')?['appOwnerOrganizationId']",
+                                        "appPublisherIsVerified": "@not(equals(items('For_each_enterprise_app')?['verifiedPublisher']?['verifiedPublisherId'], null))",
+                                        "appRoleAssignmentRequired": "@items('For_each_enterprise_app')?['appRoleAssignmentRequired']",
+                                        "deletedDateTime": "@items('For_each_enterprise_app')?['deletedDateTime']",
+                                        "description": "@items('For_each_enterprise_app')?['description']",
+                                        "displayName": "@items('For_each_enterprise_app')?['displayName']",
+                                        "errorUrl": "@items('For_each_enterprise_app')?['errorUrl']",
+                                        "homepage": "@items('For_each_enterprise_app')?['homepage']",
+                                        "id": "@items('For_each_enterprise_app')?['id']",
+                                        "info": "@items('For_each_enterprise_app')?['info']",
+                                        "isAuthorizationServiceEnabled": "@items('For_each_enterprise_app')?['isAuthorizationServiceEnabled']",
+                                        "loginUrl": "@items('For_each_enterprise_app')?['loginUrl']",
+                                        "logoutUrl": "@items('For_each_enterprise_app')?['logoutUrl']",
+                                        "notes": "@items('For_each_enterprise_app')?['notes']",
+                                        "notificationEmailAddresses": "@items('For_each_enterprise_app')?['notificationEmailAddresses']",
+                                        "publisherName": "@items('For_each_enterprise_app')?['publisherName']",
+                                        "replyUrls": "@items('For_each_enterprise_app')?['replyUrls']",
+                                        "servicePrincipalNames": "@items('For_each_enterprise_app')?['servicePrincipalNames']",
+                                        "servicePrincipalType": "@items('For_each_enterprise_app')?['servicePrincipalType']",
+                                        "signInAudience": "@items('For_each_enterprise_app')?['signInAudience']",
+                                        "tags": "@items('For_each_enterprise_app')?['tags']",
+                                        "users": "@body('Get_enterprise_app_users')?['value']",
+                                        "verifiedPublisher": "@items('For_each_enterprise_app')?['verifiedPublisher']"
+                                    }
+                                },
+                                "Get_enterprise_app_users": {
+                                    "runAfter": {},
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('clientId')]",
+                                            "secret": "[parameters('secret')]",
+                                            "tenant": "[parameters('tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/beta/servicePrincipals/@{items('For_each_enterprise_app')?['id']}/appRoleAssignedTo"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Parse_enterprise_apps": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        },
+                        "Get_enterprise_applications": {
+                            "runAfter": {
+                                "Initialize_enterpriseApps": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "audience": "https://graph.microsoft.com/",
+                                    "clientId": "[parameters('clientId')]",
+                                    "secret": "[parameters('secret')]",
+                                    "tenant": "[parameters('tenantId')]",
+                                    "type": "ActiveDirectoryOAuth"
+                                },
+                                "method": "GET",
+                                "queries": {
+                                    "$filter": "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')"
+                                },
+                                "uri": "https://graph.microsoft.com/beta/servicePrincipals"
+                            }
+                        },
+                        "Get_oauth_apps": {
+                            "runAfter": {
+                                "Initialize_enterpriseApps": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "audience": "https://graph.microsoft.com/",
+                                    "clientId": "[parameters('clientId')]",
+                                    "secret": "[parameters('secret')]",
+                                    "tenant": "[parameters('tenantId')]",
+                                    "type": "ActiveDirectoryOAuth"
+                                },
+                                "method": "GET",
+                                "uri": "https://graph.microsoft.com/beta/applications"
+                            }
+                        },
+                        "Initialize_enterpriseApps": {
+                            "runAfter": {
+                                "Initialize_tenantID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "enterpriseApps",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_tenantID": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "tenantId",
+                                        "type": "string",
+                                        "value": "[parameters('tenantId')]"
+                                    }
+                                ]
+                            }
+                        },
+                        "Parse_JSON": {
+                            "runAfter": {
+                                "Get_oauth_apps": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Get_oauth_apps')",
+                                "schema": {
+                                    "properties": {
+                                        "@@odata.context": {},
+                                        "value": {
+                                            "items": {
+                                                "properties": {
+                                                    "addIns": {
+                                                        "type": "array"
+                                                    },
+                                                    "api": {
+                                                        "properties": {
+                                                            "acceptMappedClaims": {},
+                                                            "knownClientApplications": {
+                                                                "type": "array"
+                                                            },
+                                                            "oauth2PermissionScopes": {
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "adminConsentDescription": {},
+                                                                        "adminConsentDisplayName": {},
+                                                                        "id": {},
+                                                                        "isEnabled": {
+                                                                            "type": "boolean"
+                                                                        },
+                                                                        "type": {},
+                                                                        "userConsentDescription": {},
+                                                                        "userConsentDisplayName": {},
+                                                                        "value": {}
+                                                                    },
+                                                                    "required": [],
+                                                                    "type": "object"
+                                                                },
+                                                                "type": "array"
+                                                            },
+                                                            "preAuthorizedApplications": {
+                                                                "type": "array"
+                                                            },
+                                                            "requestedAccessTokenVersion": {},
+                                                            "resourceSpecificApplicationPermissions": {
+                                                                "type": "array"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "appId": {},
+                                                    "appRoles": {
+                                                        "type": "array"
+                                                    },
+                                                    "applicationTemplateId": {},
+                                                    "createdDateTime": {},
+                                                    "deletedDateTime": {},
+                                                    "description": {},
+                                                    "displayName": {},
+                                                    "groupMembershipClaims": {},
+                                                    "id": {},
+                                                    "identifierUris": {
+                                                        "items": {},
+                                                        "type": "array"
+                                                    },
+                                                    "info": {
+                                                        "properties": {
+                                                            "logoUrl": {},
+                                                            "marketingUrl": {},
+                                                            "privacyStatementUrl": {},
+                                                            "supportUrl": {},
+                                                            "termsOfServiceUrl": {}
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "isAuthorizationServiceEnabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "isDeviceOnlyAuthSupported": {},
+                                                    "isFallbackPublicClient": {},
+                                                    "keyCredentials": {
+                                                        "type": "array"
+                                                    },
+                                                    "notes": {},
+                                                    "optionalClaims": {},
+                                                    "orgRestrictions": {
+                                                        "type": "array"
+                                                    },
+                                                    "parentalControlSettings": {
+                                                        "properties": {
+                                                            "countriesBlockedForMinors": {
+                                                                "type": "array"
+                                                            },
+                                                            "legalAgeGroupRule": {}
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "passwordCredentials": {
+                                                        "items": {
+                                                            "properties": {
+                                                                "customKeyIdentifier": {},
+                                                                "displayName": {},
+                                                                "endDateTime": {},
+                                                                "hint": {},
+                                                                "keyId": {},
+                                                                "secretText": {},
+                                                                "startDateTime": {}
+                                                            },
+                                                            "required": [],
+                                                            "type": "object"
+                                                        },
+                                                        "type": "array"
+                                                    },
+                                                    "publicClient": {
+                                                        "properties": {
+                                                            "redirectUris": {
+                                                                "type": "array"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "publisherDomain": {},
+                                                    "requiredResourceAccess": {
+                                                        "type": "array"
+                                                    },
+                                                    "signInAudience": {},
+                                                    "spa": {
+                                                        "properties": {
+                                                            "redirectUris": {
+                                                                "type": "array"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "tags": {
+                                                        "type": "array"
+                                                    },
+                                                    "tokenEncryptionKeyId": {},
+                                                    "uniqueName": {},
+                                                    "verifiedPublisher": {
+                                                        "properties": {
+                                                            "addedDateTime": {},
+                                                            "displayName": {},
+                                                            "verifiedPublisherId": {}
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "web": {
+                                                        "properties": {
+                                                            "homePageUrl": {},
+                                                            "implicitGrantSettings": {
+                                                                "properties": {
+                                                                    "enableAccessTokenIssuance": {
+                                                                        "type": "boolean"
+                                                                    },
+                                                                    "enableIdTokenIssuance": {
+                                                                        "type": "boolean"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "logoutUrl": {},
+                                                            "redirectUris": {
+                                                                "type": "array"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "required": [],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Parse_enterprise_apps": {
+                            "runAfter": {
+                                "Get_enterprise_applications": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Get_enterprise_applications')",
+                                "schema": {
+                                    "properties": {
+                                        "@@odata.context": {},
+                                        "value": {
+                                            "items": {
+                                                "properties": {
+                                                    "accountEnabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "addIns": {
+                                                        "type": "array"
+                                                    },
+                                                    "alternativeNames": {
+                                                        "type": "array"
+                                                    },
+                                                    "api": {
+                                                        "properties": {
+                                                            "resourceSpecificApplicationPermissions": {
+                                                                "type": "array"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "appDescription": {},
+                                                    "appDisplayName": {},
+                                                    "appId": {},
+                                                    "appOwnerOrganizationId": {},
+                                                    "appRoleAssignmentRequired": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "appRoles": {
+                                                        "type": "array"
+                                                    },
+                                                    "applicationTemplateId": {},
+                                                    "deletedDateTime": {},
+                                                    "description": {},
+                                                    "displayName": {},
+                                                    "errorUrl": {},
+                                                    "homepage": {},
+                                                    "id": {},
+                                                    "info": {
+                                                        "properties": {
+                                                            "logoUrl": {},
+                                                            "marketingUrl": {},
+                                                            "privacyStatementUrl": {},
+                                                            "supportUrl": {},
+                                                            "termsOfServiceUrl": {}
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "isAuthorizationServiceEnabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "keyCredentials": {
+                                                        "type": "array"
+                                                    },
+                                                    "loginUrl": {},
+                                                    "logoutUrl": {},
+                                                    "notes": {},
+                                                    "notificationEmailAddresses": {
+                                                        "type": "array"
+                                                    },
+                                                    "passwordCredentials": {
+                                                        "type": "array"
+                                                    },
+                                                    "preferredSingleSignOnMode": {},
+                                                    "preferredTokenSigningKeyEndDateTime": {},
+                                                    "preferredTokenSigningKeyThumbprint": {},
+                                                    "publishedPermissionScopes": {
+                                                        "items": {
+                                                            "properties": {
+                                                                "adminConsentDescription": {},
+                                                                "adminConsentDisplayName": {},
+                                                                "id": {},
+                                                                "isEnabled": {
+                                                                    "type": "boolean"
+                                                                },
+                                                                "type": {},
+                                                                "userConsentDescription": {},
+                                                                "userConsentDisplayName": {},
+                                                                "value": {}
+                                                            },
+                                                            "required": [],
+                                                            "type": "object"
+                                                        },
+                                                        "type": "array"
+                                                    },
+                                                    "publisherName": {},
+                                                    "replyUrls": {
+                                                        "items": {},
+                                                        "type": "array"
+                                                    },
+                                                    "samlMetadataUrl": {},
+                                                    "samlSingleSignOnSettings": {},
+                                                    "servicePrincipalNames": {
+                                                        "items": {},
+                                                        "type": "array"
+                                                    },
+                                                    "servicePrincipalType": {},
+                                                    "signInAudience": {},
+                                                    "tags": {
+                                                        "items": {},
+                                                        "type": "array"
+                                                    },
+                                                    "tokenEncryptionKeyId": {},
+                                                    "verifiedPublisher": {
+                                                        "properties": {
+                                                            "addedDateTime": {},
+                                                            "displayName": {},
+                                                            "verifiedPublisherId": {}
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "required": [],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Compose_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@variables('enterpriseApps')",
+                                "statusCode": 200
+                            }
+                        },
+                        "Send_Data_to_Log_Analytics": {
+                            "runAfter": {
+                                "Compose_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": "@{outputs('Compose_JSON')}",
+                                "headers": {
+                                    "Log-Type": "OAuthApps"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/api/logs"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureloganalyticsdatacollector": {
+                                "connectionId": "[parameters('logAnalytics_connectionId')]",
+                                "connectionName": "azureloganalyticsdatacollector",
+                                "id": "[parameters('logAnalytics_id')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+} 

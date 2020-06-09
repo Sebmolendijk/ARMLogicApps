@@ -1,0 +1,2 @@
+Import-Module Az.Resources
+New-AzResourceGroupDeployment -ResourceGroupName YourRG -TemplateFile C:\OAuthAppsReporting\OAuthApps-Reporting.template.json -TemplateParameterFile C:\OAuthAppsReporting\OAuthApps-Reporting.parameters.json -Name DeployOAuthReportingLogicApp -Verbose

@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {        
+        "logicAppName": {
+            "value": "OAuthApps-Reporting"
+        },
+        "logAnalytics_connectionId": {
+            "value": "/subscriptions/your_subscription/resourceGroups/your_resourceGroup/providers/Microsoft.Web/connections/azureloganalyticsdatacollector"
+         },
+         "logAnalytics_id": {
+             "value": "/subscriptions/your_subscription/providers/Microsoft.Web/locations/your_region/managedApis/azureloganalyticsdatacollector"
+         },
+         "clientId": {
+            "value": "your_app_clientId"
+        },
+        "secret": {
+            "value": "your_app_secret"
+        }
+
+    }
+}
