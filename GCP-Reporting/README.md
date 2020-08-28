@@ -13,10 +13,10 @@ More details on this capabiliy can be found in [MCAS documentation](https://docs
    * Your MCAS tenant URL
    * An MCAS API token (Details [here](https://docs.microsoft.com/en-us/cloud-app-security/api-tokens))
 1. Modify the **GCP-Reporting/DeployToDev.ps1** file to include the right Resource Group and Logic App name and run the commands:
-```
-Import-Module Az.Resources
-New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\GCP-Reporting.template.json -TemplateParameterFile .\GCP-Reporting.parameters.json -Name DevGPC-Reporting -Verbose
-```
+    ```
+    Import-Module Az.Resources
+    New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\GCP-Reporting.template.json -TemplateParameterFile .\GCP-Reporting.parameters.json -Name DevGPC-Reporting -Verbose
+    ```
 1. Go to the Log Analytics connection and open the "Edit API connection" link
 1. Add the workspace ID and the workspace key obtained from your workspace details and save the modifications
 1. Go to you rnewly created Logic App and enable it. It should run automically. If not, you can run the trigger manually.
