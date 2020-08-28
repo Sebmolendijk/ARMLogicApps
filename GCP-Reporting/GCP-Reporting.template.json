@@ -1,0 +1,513 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"logicAppName": {
+			"defaultValue": "GCP-Reporting",
+            "type": "string",
+			"metadata": {
+				"description": "The name of the logic app to create."
+			}
+		},
+        "logAnalytics_connectionName": {
+            "type": "String",
+            "defaultValue": "azureloganalyticsdatacollector",
+            "metadata": {
+                "description": "Log analytics API connection name"
+            }
+        },
+        "logAnalytics_id": {
+            "type": "String",
+            "defaultValue": "[concat('subscriptions/', subscription().subscriptionId,  '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', parameters('logAnalytics_connectionName'))]",
+            "metadata": {
+                "description": "Log analytics id property"
+            }
+        },
+        "logAnalytics_connectionId": {
+            "type": "String",
+            "defaultValue": "[concat('subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Web/connections/', parameters('logAnalytics_connectionName'))]",
+            "metadata": {
+                "description": "Log analytics connection id property"
+            }
+        },
+		"location": {
+			"type": "string",
+			"defaultValue": "[resourceGroup().location]",
+			"metadata": {
+				"description": "Location for all resources."
+			}
+		},        
+        "tenantUrl": {
+            "type": "string"
+        },
+        "apiToken": {
+            "type": "securestring"
+        }
+	},
+	"variables": {},
+	"resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "name": "[parameters('logAnalytics_connectionName')]",
+            "properties": {
+                "api": {
+                    "id": "[parameters('logAnalytics_id')]"
+                },
+                "displayName": "[parameters('logAnalytics_connectionName')]",
+                "parameterValues": {
+
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "semolend"
+            },
+            "dependsOn": [
+                "[parameters('logAnalytics_connectionName')]"
+            ],
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "tenantUrl": {
+                            "type": "string",
+                            "defaultValue": "[parameters('tenantUrl')]"
+                        },
+                        "apiToken": {
+                            "type": "securestring",
+                            "defaultvalue": "[parameters('apiToken')]"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "recurrence": {
+                            "type": "recurrence",
+                            "recurrence": {
+                                "frequency": "Hour",
+                                "interval": 12
+                            }
+                        }
+                    },
+                    "actions": {                        
+                        "Initialize_skip": {
+                            "runAfter": {
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "skip",
+                                        "type": "integer",
+                                        "value": 0
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_terminated": {
+                            "runAfter": {
+                                "Initialize_skip": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "terminated",
+                                        "type": "integer",
+                                        "value": 0
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_resources": {
+                            "runAfter": {
+                                "Initialize_terminated": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "resources",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_timeGenerated": {
+                            "runAfter": {
+                                "Initialize_resources": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "timeGenerated",
+                                        "type": "string",
+                                        "value": "@{formatDateTime(utcNow(), 'yyyy-MM-dd hh:mm')}"
+                                    }
+                                ]
+                            }
+                        },                        
+                        "Initialize_accounts": {
+                            "runAfter": {
+                                "Initialize_timeGenerated": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "accounts",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+
+                        "Get_GCP_Recommendations": {
+                            "actions": {
+                                "Get_all_recommendations": {
+                                    "actions": {
+                                        "Get_GCPRecommendations": {
+                                            "runAfter": {},
+                                            "type": "Http",
+                                            "inputs": {
+                                                "body": {
+                                                    "filters": {},
+                                                    "limit": 100,
+                                                    "performAsyncTotal": false,
+                                                    "skip": "@variables('skip')",
+                                                    "sortDirection": "asc",
+                                                    "sortField": "recommendationName"
+                                                },
+                                                "headers": {
+                                                    "Authorization": "[concat('token ',parameters('apiToken'))]"
+                                                },
+                                                "method": "POST",
+                                                "uri": "[concat(parameters('tenantUrl'), '/cas/api/v1/gcp_recommendations/')]"
+                                            }
+                                        },
+                                        "Switch": {
+                                            "runAfter": {
+                                                "Get_GCPRecommendations": [
+                                                    "Succeeded",
+                                                    "Failed"
+                                                ]
+                                            },
+                                            "cases": {
+                                                "Case_200_OK": {
+                                                    "case": 200,
+                                                    "actions": {
+                                                        "Foreach_recommendation": {
+                                                            "foreach": "@body('Parse_recommendations')?['data']",
+                                                            "actions": {
+                                                                "Foreach_resource": {
+                                                                    "foreach": "@items('Foreach_recommendation')?['resources']",
+                                                                    "actions": {
+                                                                        "Append_to_resources": {
+                                                                            "runAfter": {
+                                                                                "Compose_row": [
+                                                                                    "Succeeded"
+                                                                                ]
+                                                                            },
+                                                                            "type": "AppendToArrayVariable",
+                                                                            "inputs": {
+                                                                                "name": "resources",
+                                                                                "value": "@outputs('Compose_row')"
+                                                                            }
+                                                                        },
+                                                                        "Compose_row": {
+                                                                            "runAfter": {},
+                                                                            "type": "Compose",
+                                                                            "inputs": {
+                                                                                        "cisItemNumber": "@{items('Foreach_recommendation')?['cisItemNumber']}",
+                                                                                        "recommendationCategories": "@{items('Foreach_recommendation')?['categories']}",
+                                                                                        "recommendationDescription": "@{items('Foreach_recommendation')?['description']}",
+                                                                                        "recommendationId": "@{items('Foreach_recommendation')?['_id']}",
+                                                                                        "recommendationLink": "@{items('Foreach_recommendation')?['link']}",
+                                                                                        "recommendationName": "@{items('Foreach_recommendation')?['recommendationName']}",
+                                                                                        "recommendationRemediation": "@{items('Foreach_recommendation')?['remediation']}",
+                                                                                        "recommendationSeverity": "@{items('Foreach_recommendation')?['severity'][1]}",
+                                                                                        "resourceDisplayName": "@{items('Foreach_resource')?['displayName']}",
+                                                                                        "resourceFindingLink": "@{items('Foreach_resource')?['findingLink']}",
+                                                                                        "resourceLink": "@{items('Foreach_resource')?['link']}",
+                                                                                        "resourceName": "@{items('Foreach_resource')?['name']}",
+                                                                                        "resourceProjects": "@{items('Foreach_recommendation')?['projects']}",
+                                                                                        "resourceType": "@{items('Foreach_resource')?['type']}",
+                                                                                        "timeGenerated": "@{variables('timeGenerated')}"
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "Foreach"
+                                                                }
+                                                            },
+                                                            "runAfter": {
+                                                                "Parse_recommendations": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "Foreach"
+                                                        },
+                                                        "Increment_skip": {
+                                                            "runAfter": {},
+                                                            "type": "IncrementVariable",
+                                                            "inputs": {
+                                                                "name": "skip",
+                                                                "value": 100
+                                                            }
+                                                        },
+                                                        "Parse_recommendations": {
+                                                            "runAfter": {
+                                                                "Increment_skip": [
+                                                                    "Succeeded"
+                                                                ]
+                                                            },
+                                                            "type": "ParseJson",
+                                                            "inputs": {
+                                                                "content": "@body('Get_GCPRecommendations')",
+                                                                "schema": {
+                                                                    "properties": {
+                                                                        "data": {
+                                                                            "items": {
+                                                                                "properties": {
+                                                                                    "_id": {},
+                                                                                    "categories": {
+                                                                                        "items": {},
+                                                                                        "type": "array"
+                                                                                    },
+                                                                                    "cisItemNumber": {},
+                                                                                    "description": {},
+                                                                                    "link": {},
+                                                                                    "projects": {
+                                                                                        "items": {
+                                                                                            "properties": {
+                                                                                                "id": {},
+                                                                                                "name": {}
+                                                                                            },
+                                                                                            "required": [],
+                                                                                            "type": "object"
+                                                                                        },
+                                                                                        "type": "array"
+                                                                                    },
+                                                                                    "recommendationName": {},
+                                                                                    "remediation": {},
+                                                                                    "resourceTypes": {
+                                                                                        "items": {
+                                                                                            "properties": {
+                                                                                                "type": {}
+                                                                                            },
+                                                                                            "required": [
+                                                                                                "type"
+                                                                                            ],
+                                                                                            "type": "object"
+                                                                                        },
+                                                                                        "type": "array"
+                                                                                    },
+                                                                                    "resources": {
+                                                                                        "items": {
+                                                                                            "properties": {
+                                                                                                "displayName": {},
+                                                                                                "findingLink": {},
+                                                                                                "link": {},
+                                                                                                "name": {},
+                                                                                                "type": {}
+                                                                                            },
+                                                                                            "required": [],
+                                                                                            "type": "object"
+                                                                                        },
+                                                                                        "type": "array"
+                                                                                    },
+                                                                                    "severity": {
+                                                                                        "type": "array"
+                                                                                    }
+                                                                                },
+                                                                                "required": [],
+                                                                                "type": "object"
+                                                                            },
+                                                                            "type": "array"
+                                                                        },
+                                                                        "hasNext": {
+                                                                            "type": "boolean"
+                                                                        },
+                                                                        "max": {},
+                                                                        "moreThanTotal": {
+                                                                            "type": "boolean"
+                                                                        },
+                                                                        "total": {}
+                                                                    },
+                                                                    "type": "object"
+                                                                
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "Case_401_Unauthorized": {
+                                                    "case": 401,
+                                                    "actions": {
+                                                        "Set_terminated_401": {
+                                                            "runAfter": {},
+                                                            "type": "SetVariable",
+                                                            "inputs": {
+                                                                "name": "terminated",
+                                                                "value": "@outputs('Get_GCPRecommendations')['statusCode']"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "Case_429_Too_Many_Requests": {
+                                                    "case": 429,
+                                                    "actions": {
+                                                        "Sleep_1_minute": {
+                                                            "runAfter": {},
+                                                            "type": "Wait",
+                                                            "inputs": {
+                                                                "interval": {
+                                                                    "count": 1,
+                                                                    "unit": "Minute"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "default": {
+                                                "actions": {
+                                                    "Set_terminated": {
+                                                        "runAfter": {},
+                                                        "type": "SetVariable",
+                                                        "inputs": {
+                                                            "name": "terminated",
+                                                            "value": "@outputs('Get_GCPRecommendations')['statusCode']"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "expression": "@outputs('Get_GCPRecommendations')['statusCode']",
+                                            "type": "Switch"
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "expression": "@equals(body('Parse_recommendations')?['hasNext'], false)",
+                                    "limit": {
+                                        "count": 60,
+                                        "timeout": "PT1H"
+                                    },
+                                    "type": "Until"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_accounts": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "If_error_code": {
+                            "actions": {
+                                "Terminate": {
+                                    "runAfter": {},
+                                    "type": "Terminate",
+                                    "inputs": {
+                                        "runError": {
+                                            "code": "@{variables('terminated')}",
+                                            "message": "@{body('Get_GCPRecommendations')}"
+                                        },
+                                        "runStatus": "Failed"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Get_GCP_Recommendations": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "not": {
+                                            "equals": [
+                                                "@variables('terminated')",
+                                                0
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Send_Sentinel": {
+                            "actions": {
+                                "Compose_JSON": {
+                                    "runAfter": {},
+                                    "type": "Compose",
+                                    "inputs": "@variables('resources')"
+                                },
+                                "Send_Data_to_Sentinel": {
+                                    "runAfter": {
+                                        "Compose_JSON": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": "@{outputs('Compose_JSON')}",
+                                        "headers": {
+                                            "Log-Type": "McasCspm",
+                                            "time-generated-field": "@variables('timeGenerated')"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/api/logs"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "If_error_code": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "[parameters('logAnalytics_connectionName')]": {
+                                "connectionId": "[parameters('logAnalytics_connectionId')]",
+                                "connectionName": "[parameters('logAnalytics_connectionName')]",
+                                "id": "[parameters('logAnalytics_id')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+	"outputs": {}
+}

@@ -1,0 +1,17 @@
+McasCspm_CL
+| where TimeGenerated >= ago(90d)
+| summarize arg_max(TimeGenerated, *) by resourceName_s, recommendationName_s
+| sort by recommendationSeverity_s asc
+
+McasCspm_CL
+| where TimeGenerated >= ago(90d)
+| summarize arg_max(TimeGenerated, *) by resourceName_s, recommendationName_s
+| summarize count() by recommendationName_s
+| sort by count_ desc 
+
+
+McasCspm_CL
+| where TimeGenerated >= ago(90d)
+| summarize arg_max(TimeGenerated, *) by resourceName_s, recommendationName_s
+| summarize count() by resourceName_s, recommendationSeverity_s
+| sort by recommendationSeverity_s asc, count_ desc 
