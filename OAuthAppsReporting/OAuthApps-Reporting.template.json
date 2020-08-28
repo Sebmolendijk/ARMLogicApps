@@ -1,21 +1,30 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "logicAppName": {
             "defaultValue": "OAuthApps-Reporting",
             "type": "String"
         },
+        "logAnalytics_connectionName": {
+            "type": "String",
+            "defaultValue": "azureloganalyticsdatacollector",
+            "metadata": {
+                "description": "Log analytics API connection name"
+            }
+        },
         "logAnalytics_id": {
             "type": "String",
+            "defaultValue": "[concat('subscriptions/', subscription().subscriptionId,  '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', parameters('logAnalytics_connectionName'))]",
             "metadata": {
                 "description": "Log analytics id property"
             }
         },
         "logAnalytics_connectionId": {
             "type": "String",
+            "defaultValue": "[concat('subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Web/connections/', parameters('logAnalytics_connectionName'))]",
             "metadata": {
-                "description": "Log analytics id property"
+                "description": "Log analytics connection id property"
             }
         },
         "location": {
@@ -30,7 +39,7 @@
             "defaultValue": "[subscription().tenantId]"
         },
         "clientId": {
-            "type": "securestring",
+            "type": "securestring", 
             "defaultValue": "my_clientId"
         },
         "secret": {
@@ -40,13 +49,31 @@
     "variables": {},
     "resources": [
         {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "name": "[parameters('logAnalytics_connectionName')]",
+            "properties": {
+                "api": {
+                    "id": "[parameters('logAnalytics_id')]"
+                },
+                "displayName": "[parameters('logAnalytics_connectionName')]",
+                "parameterValues": {
+
+                }
+            }
+        },
+        {
             "type": "Microsoft.Logic/workflows",
-            "apiVersion": "2017-07-01",
+            "apiVersion": "2016-06-01",
             "name": "[parameters('logicAppName')]",
             "location": "[parameters('location')]",
             "tags": {
                 "Owner": "semolend"
             },
+            "dependsOn": [
+                "[parameters('logAnalytics_connectionName')]"
+            ],
             "properties": {
                 "state": "Enabled",
                 "definition": {
@@ -72,18 +99,15 @@
                             "runAfter": {
                                 "For_each_enterprise_app": [
                                     "Succeeded"
-                                ],
-                                "Parse_JSON": [
-                                    "Succeeded"
                                 ]
                             },
                             "type": "Compose",
                             "inputs": "@variables('enterpriseApps')"
                         },
                         "For_each_enterprise_app": {
-                            "foreach": "@body('Parse_enterprise_apps')?['value']",
+                            "foreach": "@variables('graphApps')",
                             "actions": {
-                                "Append_to_array_variable": {
+                                "Append_to_enterpriseApps": {
                                     "runAfter": {
                                         "Compose_app_details": [
                                             "Succeeded"
@@ -109,6 +133,7 @@
                                         "appDisplayName": "@items('For_each_enterprise_app')?['appDisplayName']",
                                         "appId": "@items('For_each_enterprise_app')?['appId']",
                                         "appIsForeign": "@not(equals(items('For_each_enterprise_app')?['appOwnerOrganizationId'], variables('tenantId')))",
+                                        "appRoleAssignmentsPermissions": "@body('Get_enterprise_appRoleAssignments_permissions')?['value']",
                                         "appOwnerOrganizationId": "@items('For_each_enterprise_app')?['appOwnerOrganizationId']",
                                         "appPublisherIsVerified": "@not(equals(items('For_each_enterprise_app')?['verifiedPublisher']?['verifiedPublisherId'], null))",
                                         "appRoleAssignmentRequired": "@items('For_each_enterprise_app')?['appRoleAssignmentRequired']",
@@ -124,18 +149,62 @@
                                         "logoutUrl": "@items('For_each_enterprise_app')?['logoutUrl']",
                                         "notes": "@items('For_each_enterprise_app')?['notes']",
                                         "notificationEmailAddresses": "@items('For_each_enterprise_app')?['notificationEmailAddresses']",
+                                        "permissions" : "permissions",
+                                        "permissionsLevel" : "High",
                                         "publisherName": "@items('For_each_enterprise_app')?['publisherName']",
                                         "replyUrls": "@items('For_each_enterprise_app')?['replyUrls']",
                                         "servicePrincipalNames": "@items('For_each_enterprise_app')?['servicePrincipalNames']",
                                         "servicePrincipalType": "@items('For_each_enterprise_app')?['servicePrincipalType']",
                                         "signInAudience": "@items('For_each_enterprise_app')?['signInAudience']",
                                         "tags": "@items('For_each_enterprise_app')?['tags']",
+                                        "userDelegatedPermissions": "@body('Get_enterprise_oauth2PermissionGrants_permissions')?['value']",
                                         "users": "@body('Get_enterprise_app_users')?['value']",
                                         "verifiedPublisher": "@items('For_each_enterprise_app')?['verifiedPublisher']"
                                     }
                                 },
-                                "Get_enterprise_app_users": {
+                                "Get_enterprise_appRoleAssignments_permissions": {
+                                    "description": "Get application level granted permissions",
                                     "runAfter": {},
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('clientId')]",
+                                            "secret": "[parameters('secret')]",
+                                            "tenant": "[parameters('tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/beta/servicePrincipals/@{items('For_each_enterprise_app')?['id']}/appRoleAssignments"
+                                    }
+                                },
+                                "Get_enterprise_oauth2PermissionGrants_permissions": {
+                                    "description": "Get user level delegated permissions",
+                                    "runAfter": {
+                                        
+                                        "Get_enterprise_appRoleAssignments_permissions": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('clientId')]",
+                                            "secret": "[parameters('secret')]",
+                                            "tenant": "[parameters('tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/beta/servicePrincipals/@{items('For_each_enterprise_app')?['id']}/oauth2PermissionGrants"
+                                    }
+                                },
+                                "Get_enterprise_app_users": {
+                                    "runAfter": {
+                                        "Get_enterprise_oauth2PermissionGrants_permissions": [
+                                            "Succeeded"
+                                        ]
+                                    },
                                     "type": "Http",
                                     "inputs": {
                                         "authentication": {
@@ -151,59 +220,14 @@
                                 }
                             },
                             "runAfter": {
-                                "Parse_enterprise_apps": [
+                                "Do_Until_allApps_collected": [
                                     "Succeeded"
                                 ]
                             },
                             "type": "Foreach"
                         },
-                        "Get_enterprise_applications": {
-                            "runAfter": {
-                                "Initialize_enterpriseApps": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "Http",
-                            "inputs": {
-                                "authentication": {
-                                    "audience": "https://graph.microsoft.com/",
-                                    "clientId": "[parameters('clientId')]",
-                                    "secret": "[parameters('secret')]",
-                                    "tenant": "[parameters('tenantId')]",
-                                    "type": "ActiveDirectoryOAuth"
-                                },
-                                "method": "GET",
-                                "queries": {
-                                    "$filter": "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')"
-                                },
-                                "uri": "https://graph.microsoft.com/beta/servicePrincipals"
-                            }
-                        },
-                        "Get_oauth_apps": {
-                            "runAfter": {
-                                "Initialize_enterpriseApps": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "Http",
-                            "inputs": {
-                                "authentication": {
-                                    "audience": "https://graph.microsoft.com/",
-                                    "clientId": "[parameters('clientId')]",
-                                    "secret": "[parameters('secret')]",
-                                    "tenant": "[parameters('tenantId')]",
-                                    "type": "ActiveDirectoryOAuth"
-                                },
-                                "method": "GET",
-                                "uri": "https://graph.microsoft.com/beta/applications"
-                            }
-                        },
                         "Initialize_enterpriseApps": {
-                            "runAfter": {
-                                "Initialize_tenantID": [
-                                    "Succeeded"
-                                ]
-                            },
+                            "runAfter": {},
                             "type": "InitializeVariable",
                             "inputs": {
                                 "variables": [
@@ -214,8 +238,28 @@
                                 ]
                             }
                         },
+                        "Initialize_graphApps": {
+                            "runAfter": {
+                                "Initialize_enterpriseApps": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "graphApps",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
                         "Initialize_tenantID": {
-                            "runAfter": {},
+                            "runAfter": {
+                                "Initialize_graphApps": [
+                                    "Succeeded"
+                                ]
+                            },
                             "type": "InitializeVariable",
                             "inputs": {
                                 "variables": [
@@ -227,31 +271,167 @@
                                 ]
                             }
                         },
-                        "Parse_JSON": {
+                        "Initialize_graphQuery": {
                             "runAfter": {
-                                "Get_oauth_apps": [
+                                "Initialize_tenantID": [
                                     "Succeeded"
                                 ]
                             },
-                            "type": "ParseJson",
+                            "type": "InitializeVariable",
                             "inputs": {
-                                "content": "@body('Get_oauth_apps')",
-                                "schema": {
-                                    "properties": {
-                                        "@@odata.context": {},
-                                        "value": {
-                                            "items": {
-                                                "properties": {
-                                                    "addIns": {
-                                                        "type": "array"
-                                                    },
-                                                    "api": {
+                                "variables": [
+                                    {
+                                        "name": "graphQuery",
+                                        "type": "string",
+                                        "value": "https://graph.microsoft.com/beta/servicePrincipals"
+                                    }
+                                ]
+                            }
+                        },
+                        "Scope_Get_APIs_permissions": {
+                            "actions": {
+                                "Get_Graph_permissions": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('clientId')]",
+                                            "secret": "[parameters('secret')]",
+                                            "tenant": "[parameters('tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/v1.0/servicePrincipals/f9d938f5-d874-41cd-b8bc-482617434b3d?$select=oauth2PermissionScopes,appRoles"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Http"
+                                },
+                                "Join_permissions": {
+                                    "description": "Collect all possible permissions for the Graph api - oauth2PermissionScopes,appRoles properties",
+                                    "inputs": "@union(body('Get_Graph_permissions')?['oauth2PermissionScopes'], body('Get_Graph_permissions')?['appRoles'])",
+                                    "runAfter": {
+                                        "Get_Graph_permissions": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_graphQuery": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Do_Until_allApps_collected": {
+                            "actions": {
+                                "Get_enterprise_applications": {
+                                    "runAfter": {},
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "2c51cdd9-691e-438e-a136-81d806485b36",
+                                            "secret": "0ly7v+-]v-UHboj4D1g:s2+6bZ:cX.p.",
+                                            "tenant": "4b2462a4-bbee-495a-a0e1-f23ae524cc9c",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "queries": {
+                                            "$filter": "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')"
+                                        },
+                                        "uri": "@variables('graphQuery')"
+                                    }
+                                },
+                                "Join_apps_with_graphApps": {
+                                    "runAfter": {
+                                        "Set_graphQuery": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@union(variables('graphApps'), body('Parse_enterprise_apps')?['value'])",
+                                    "description": "union(variables('graphApps'), body('Parse_enterprise_apps')?['value'])"
+                                },
+                                "Parse_enterprise_apps": {
+                                    "runAfter": {
+                                        "Get_enterprise_applications": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Get_enterprise_applications')",
+                                        "schema": {
+                                            "properties": {
+                                                "@@odata.context": {},
+                                                "@@odata.nextLink": {},
+                                                "value": {
+                                                    "items": {
                                                         "properties": {
-                                                            "acceptMappedClaims": {},
-                                                            "knownClientApplications": {
+                                                            "accountEnabled": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "addIns": {
                                                                 "type": "array"
                                                             },
-                                                            "oauth2PermissionScopes": {
+                                                            "alternativeNames": {
+                                                                "type": "array"
+                                                            },
+                                                            "api": {
+                                                                "properties": {
+                                                                    "resourceSpecificApplicationPermissions": {
+                                                                        "type": "array"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "appDescription": {},
+                                                            "appDisplayName": {},
+                                                            "appId": {},
+                                                            "appOwnerOrganizationId": {},
+                                                            "appRoleAssignmentRequired": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "appRoles": {
+                                                                "type": "array"
+                                                            },
+                                                            "applicationTemplateId": {},
+                                                            "deletedDateTime": {},
+                                                            "description": {},
+                                                            "displayName": {},
+                                                            "errorUrl": {},
+                                                            "homepage": {},
+                                                            "id": {},
+                                                            "info": {
+                                                                "properties": {
+                                                                    "logoUrl": {},
+                                                                    "marketingUrl": {},
+                                                                    "privacyStatementUrl": {},
+                                                                    "supportUrl": {},
+                                                                    "termsOfServiceUrl": {}
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "isAuthorizationServiceEnabled": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "keyCredentials": {
+                                                                "type": "array"
+                                                            },
+                                                            "loginUrl": {},
+                                                            "logoutUrl": {},
+                                                            "notes": {},
+                                                            "notificationEmailAddresses": {
+                                                                "type": "array"
+                                                            },
+                                                            "passwordCredentials": {
+                                                                "type": "array"
+                                                            },
+                                                            "preferredSingleSignOnMode": {},
+                                                            "preferredTokenSigningKeyEndDateTime": {},
+                                                            "preferredTokenSigningKeyThumbprint": {},
+                                                            "publishedPermissionScopes": {
                                                                 "items": {
                                                                     "properties": {
                                                                         "adminConsentDescription": {},
@@ -270,277 +450,79 @@
                                                                 },
                                                                 "type": "array"
                                                             },
-                                                            "preAuthorizedApplications": {
+                                                            "publisherName": {},
+                                                            "replyUrls": {
+                                                                "items": {},
                                                                 "type": "array"
                                                             },
-                                                            "requestedAccessTokenVersion": {},
-                                                            "resourceSpecificApplicationPermissions": {
-                                                                "type": "array"
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "appId": {},
-                                                    "appRoles": {
-                                                        "type": "array"
-                                                    },
-                                                    "applicationTemplateId": {},
-                                                    "createdDateTime": {},
-                                                    "deletedDateTime": {},
-                                                    "description": {},
-                                                    "displayName": {},
-                                                    "groupMembershipClaims": {},
-                                                    "id": {},
-                                                    "identifierUris": {
-                                                        "items": {},
-                                                        "type": "array"
-                                                    },
-                                                    "info": {
-                                                        "properties": {
-                                                            "logoUrl": {},
-                                                            "marketingUrl": {},
-                                                            "privacyStatementUrl": {},
-                                                            "supportUrl": {},
-                                                            "termsOfServiceUrl": {}
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "isAuthorizationServiceEnabled": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "isDeviceOnlyAuthSupported": {},
-                                                    "isFallbackPublicClient": {},
-                                                    "keyCredentials": {
-                                                        "type": "array"
-                                                    },
-                                                    "notes": {},
-                                                    "optionalClaims": {},
-                                                    "orgRestrictions": {
-                                                        "type": "array"
-                                                    },
-                                                    "parentalControlSettings": {
-                                                        "properties": {
-                                                            "countriesBlockedForMinors": {
+                                                            "samlMetadataUrl": {},
+                                                            "samlSingleSignOnSettings": {},
+                                                            "servicePrincipalNames": {
+                                                                "items": {},
                                                                 "type": "array"
                                                             },
-                                                            "legalAgeGroupRule": {}
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "passwordCredentials": {
-                                                        "items": {
-                                                            "properties": {
-                                                                "customKeyIdentifier": {},
-                                                                "displayName": {},
-                                                                "endDateTime": {},
-                                                                "hint": {},
-                                                                "keyId": {},
-                                                                "secretText": {},
-                                                                "startDateTime": {}
+                                                            "servicePrincipalType": {},
+                                                            "signInAudience": {},
+                                                            "tags": {
+                                                                "items": {},
+                                                                "type": "array"
                                                             },
-                                                            "required": [],
-                                                            "type": "object"
-                                                        },
-                                                        "type": "array"
-                                                    },
-                                                    "publicClient": {
-                                                        "properties": {
-                                                            "redirectUris": {
-                                                                "type": "array"
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "publisherDomain": {},
-                                                    "requiredResourceAccess": {
-                                                        "type": "array"
-                                                    },
-                                                    "signInAudience": {},
-                                                    "spa": {
-                                                        "properties": {
-                                                            "redirectUris": {
-                                                                "type": "array"
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "tags": {
-                                                        "type": "array"
-                                                    },
-                                                    "tokenEncryptionKeyId": {},
-                                                    "uniqueName": {},
-                                                    "verifiedPublisher": {
-                                                        "properties": {
-                                                            "addedDateTime": {},
-                                                            "displayName": {},
-                                                            "verifiedPublisherId": {}
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "web": {
-                                                        "properties": {
-                                                            "homePageUrl": {},
-                                                            "implicitGrantSettings": {
+                                                            "tokenEncryptionKeyId": {},
+                                                            "verifiedPublisher": {
                                                                 "properties": {
-                                                                    "enableAccessTokenIssuance": {
-                                                                        "type": "boolean"
-                                                                    },
-                                                                    "enableIdTokenIssuance": {
-                                                                        "type": "boolean"
-                                                                    }
+                                                                    "addedDateTime": {},
+                                                                    "displayName": {},
+                                                                    "verifiedPublisherId": {}
                                                                 },
                                                                 "type": "object"
-                                                            },
-                                                            "logoutUrl": {},
-                                                            "redirectUris": {
-                                                                "type": "array"
                                                             }
                                                         },
+                                                        "required": [],
                                                         "type": "object"
-                                                    }
-                                                },
-                                                "required": [],
-                                                "type": "object"
+                                                    },
+                                                    "type": "array"
+                                                }
                                             },
-                                            "type": "array"
+                                            "type": "object"
                                         }
+                                    }
+                                },
+                                "Set_graphApps": {
+                                    "runAfter": {
+                                        "Join_apps_with_graphApps": [
+                                            "Succeeded"
+                                        ]
                                     },
-                                    "type": "object"
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "graphApps",
+                                        "value": "@outputs('Join_apps_with_graphApps')"
+                                    }
+                                },
+                                "Set_graphQuery": {
+                                    "runAfter": {
+                                        "Parse_enterprise_apps": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "graphQuery",
+                                        "value": "@{body('Parse_enterprise_apps')?['@odata.nextLink']}"
+                                    }
                                 }
-                            }
-                        },
-                        "Parse_enterprise_apps": {
+                            },
                             "runAfter": {
-                                "Get_enterprise_applications": [
+                                "Scope_Get_APIs_permissions": [
                                     "Succeeded"
                                 ]
                             },
-                            "type": "ParseJson",
-                            "inputs": {
-                                "content": "@body('Get_enterprise_applications')",
-                                "schema": {
-                                    "properties": {
-                                        "@@odata.context": {},
-                                        "value": {
-                                            "items": {
-                                                "properties": {
-                                                    "accountEnabled": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "addIns": {
-                                                        "type": "array"
-                                                    },
-                                                    "alternativeNames": {
-                                                        "type": "array"
-                                                    },
-                                                    "api": {
-                                                        "properties": {
-                                                            "resourceSpecificApplicationPermissions": {
-                                                                "type": "array"
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "appDescription": {},
-                                                    "appDisplayName": {},
-                                                    "appId": {},
-                                                    "appOwnerOrganizationId": {},
-                                                    "appRoleAssignmentRequired": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "appRoles": {
-                                                        "type": "array"
-                                                    },
-                                                    "applicationTemplateId": {},
-                                                    "deletedDateTime": {},
-                                                    "description": {},
-                                                    "displayName": {},
-                                                    "errorUrl": {},
-                                                    "homepage": {},
-                                                    "id": {},
-                                                    "info": {
-                                                        "properties": {
-                                                            "logoUrl": {},
-                                                            "marketingUrl": {},
-                                                            "privacyStatementUrl": {},
-                                                            "supportUrl": {},
-                                                            "termsOfServiceUrl": {}
-                                                        },
-                                                        "type": "object"
-                                                    },
-                                                    "isAuthorizationServiceEnabled": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "keyCredentials": {
-                                                        "type": "array"
-                                                    },
-                                                    "loginUrl": {},
-                                                    "logoutUrl": {},
-                                                    "notes": {},
-                                                    "notificationEmailAddresses": {
-                                                        "type": "array"
-                                                    },
-                                                    "passwordCredentials": {
-                                                        "type": "array"
-                                                    },
-                                                    "preferredSingleSignOnMode": {},
-                                                    "preferredTokenSigningKeyEndDateTime": {},
-                                                    "preferredTokenSigningKeyThumbprint": {},
-                                                    "publishedPermissionScopes": {
-                                                        "items": {
-                                                            "properties": {
-                                                                "adminConsentDescription": {},
-                                                                "adminConsentDisplayName": {},
-                                                                "id": {},
-                                                                "isEnabled": {
-                                                                    "type": "boolean"
-                                                                },
-                                                                "type": {},
-                                                                "userConsentDescription": {},
-                                                                "userConsentDisplayName": {},
-                                                                "value": {}
-                                                            },
-                                                            "required": [],
-                                                            "type": "object"
-                                                        },
-                                                        "type": "array"
-                                                    },
-                                                    "publisherName": {},
-                                                    "replyUrls": {
-                                                        "items": {},
-                                                        "type": "array"
-                                                    },
-                                                    "samlMetadataUrl": {},
-                                                    "samlSingleSignOnSettings": {},
-                                                    "servicePrincipalNames": {
-                                                        "items": {},
-                                                        "type": "array"
-                                                    },
-                                                    "servicePrincipalType": {},
-                                                    "signInAudience": {},
-                                                    "tags": {
-                                                        "items": {},
-                                                        "type": "array"
-                                                    },
-                                                    "tokenEncryptionKeyId": {},
-                                                    "verifiedPublisher": {
-                                                        "properties": {
-                                                            "addedDateTime": {},
-                                                            "displayName": {},
-                                                            "verifiedPublisherId": {}
-                                                        },
-                                                        "type": "object"
-                                                    }
-                                                },
-                                                "required": [],
-                                                "type": "object"
-                                            },
-                                            "type": "array"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
+                            "expression": "@equals(body('Parse_enterprise_apps')?['@odata.nextLink'], null)",
+                            "limit": {
+                                "count": 60,
+                                "timeout": "PT1H"
+                            },
+                            "type": "Until"
                         },
                         "Response": {
                             "runAfter": {
@@ -584,7 +566,7 @@
                         "value": {
                             "azureloganalyticsdatacollector": {
                                 "connectionId": "[parameters('logAnalytics_connectionId')]",
-                                "connectionName": "azureloganalyticsdatacollector",
+                                "connectionName": "[parameters('logAnalytics_connectionName')]",
                                 "id": "[parameters('logAnalytics_id')]"
                             }
                         }

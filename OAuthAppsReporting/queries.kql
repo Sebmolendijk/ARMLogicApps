@@ -1,0 +1,49 @@
+// return latest value of collected apps and summarize by app published tenant ID and publisher name.
+// interesting to identify potential malicious tenants like fake Microsoft tenants
+OAuthApps_CL
+| where TimeGenerated >= ago(30d)
+| summarize arg_max(TimeGenerated, *) by appId_g
+| summarize count() by appOwnerOrganizationId_g, publisherName_s
+| sort by publisherName_s asc
+
+
+
+// extend log by adding permissions obtained from Graph
+let timeToSearch = 14d;
+let appsPermissions = 
+    OAuthApps_CL
+    | where TimeGenerated >= ago(timeToSearch) //and appRoleAssignmentsPermissions_s != '[]'
+    | summarize arg_max(TimeGenerated, *) by appId_g
+    | extend appPerms = todynamic(appRoleAssignmentsPermissions_s), userPerms = todynamic(userDelegatedPermissions_s)
+    | mv-expand P = appPerms
+    | extend appRoleId = P['appRoleId'], appDisplayName_s
+    | summarize appPermissions = make_set(appRoleId) by appId_g
+;
+let delegatedPermissions = 
+    OAuthApps_CL
+    | where TimeGenerated >= ago(timeToSearch)
+    | summarize arg_max(TimeGenerated, *) by appId_g
+    | extend delegatedPerms = todynamic(userDelegatedPermissions_s)
+    | mv-expand P = delegatedPerms
+    | extend oAuth2Permissions = split(P['scope'], ' ')
+    | summarize appDelegatedPermissions = make_set(oAuth2Permissions) by appId_g
+;
+appsPermissions 
+| join kind= fullouter delegatedPermissions on appId_g
+| join kind=fullouter (OAuthApps_CL 
+    | where TimeGenerated >= ago(timeToSearch)
+    | summarize arg_max(TimeGenerated, *) by appId_g
+)on appId_g
+
+
+
+OAuthApps_CL
+| where TimeGenerated >= ago(7d) //and appRoleAssignmentsPermissions_s != '[]' //and appDisplayName_s == 'PostmanSeb'
+| summarize arg_max(TimeGenerated, *) by appId_g
+| extend appPerms = todynamic(appRoleAssignmentsPermissions_s), userPerms = todynamic(userDelegatedPermissions_s)
+| mv-expand userPerms
+| mv-expand appPerms
+| project appDisplayName_s, appId_g, appRoleId = appPerms['appRoleId'], userPerms
+| summarize appPermissions = make_set(appRoleId) by appDisplayName_s, appId_g
+//| distinct appId_g, appDisplayName_s
+| sort by appDisplayName_s asc
