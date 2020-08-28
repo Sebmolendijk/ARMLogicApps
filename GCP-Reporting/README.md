@@ -17,3 +17,7 @@ More details on this capabiliy can be found in [MCAS documentation](https://docs
 Import-Module Az.Resources
 New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\GCP-Reporting.template.json -TemplateParameterFile .\GCP-Reporting.parameters.json -Name DevGPC-Reporting -Verbose
 ```
+1. Go to the Log Analytics connection and open the "Edit API connection" link
+1. Add the workspace ID and the workspace key obtained from your workspace details and save the modifications
+1. Go to you rnewly created Logic App and enable it. It should run automically. If not, you can run the trigger manually.
+1. Go to your Log Analytics workspace and review the log created under the **McasCspm_CL** custom log (it might take a few minutes before the results appear)
