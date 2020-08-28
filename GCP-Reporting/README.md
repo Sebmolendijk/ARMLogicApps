@@ -1,7 +1,7 @@
 # GCP-Reporting
 
 This Logic App collect GCP recommendations from Microsoft Cloud App Security and send it to a Log Analytics workspace for analysis.
-More details on this capabiliy can be found in [MCAS GCP](https://docs.microsoft.com/en-us/cloud-app-security/connect-google-gcp-to-microsoft-cloud-app-security "MCAS documentation") 
+More details on this capabiliy can be found in [MCAS documentation](https://docs.microsoft.com/en-us/cloud-app-security/connect-google-gcp-to-microsoft-cloud-app-security "MCAS documentation") 
 
 ## Deployment steps
 
