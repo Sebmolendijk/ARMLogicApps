@@ -8,8 +8,12 @@ More details on this capabiliy can be found in [MCAS documentation](https://docs
 1. Create a Resource Group where you'll deploy your Logic App
 1. Create a Log Analytics workspace where you'll store the data (you can use an existing workspace)
 1. Modify the **GCP-Reporting.parameters.json** parameter file to include:
-  1. Your Logic App name
-  1. The name of the Log Analytics connection to use (the default value is provided in the file)
-  1. Your MCAS tenant URL
-  1. An MCAS API token (Details [here](https://docs.microsoft.com/en-us/cloud-app-security/api-tokens))
- 
+   * Your Logic App name
+   * The name of the Log Analytics connection to use (the default value is provided in the file)
+   * Your MCAS tenant URL
+   * An MCAS API token (Details [here](https://docs.microsoft.com/en-us/cloud-app-security/api-tokens))
+1. Modify the **GCP-Reporting/DeployToDev.ps1** file to include the right Resource Group and Logic App name and run the commands:
+```
+Import-Module Az.Resources
+New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\GCP-Reporting.template.json -TemplateParameterFile .\GCP-Reporting.parameters.json -Name DevGPC-Reporting -Verbose
+```
