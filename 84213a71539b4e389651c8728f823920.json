@@ -1,0 +1,284 @@
+{
+  "properties": {
+    "categoryNames": [],
+    "displayName": "MCAS - Infrequent country alert triage",
+    "summary": "MCAS - Infrequent country alert triage",
+    "description": "MCAS - Infrequent country alert triage",
+    "author": {
+      "displayName": "Microsoft Cloud App Security CxE",
+      "source": "community"
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_an_alert_is_generated": {
+          "metadata": {
+            "flowSystemMetadata": {
+              "swaggerOperationId": "MCAS_ON_ALERT_GENERATED"
+            }
+          },
+          "type": "ApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_cloudappsecurity']['connectionId']"
+              }
+            },
+            "body": {
+              "callback_url": "@{listCallbackUrl()}"
+            },
+            "path": "/cas/api/v1/ms_flow/",
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Get_user_profile": {
+          "runAfter": {},
+          "metadata": {
+            "flowSystemMetadata": {
+              "swaggerOperationId": "UserProfile_V2"
+            }
+          },
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_office365users']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/codeless/v1.0/users/@{encodeURIComponent(triggerBody()?['CompromisedEntity'])}",
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Get_user_OOF": {
+          "runAfter": {
+            "Get_manager_info_of_user_": [
+              "Succeeded",
+              "TimedOut",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "flowSystemMetadata": {
+              "swaggerOperationId": "GetMailTips"
+            }
+          },
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_office365']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/MailTips",
+            "queries": {
+              "mailboxAddress": "@body('Get_user_profile')?['mail']"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Check_group_membership": {
+          "runAfter": {
+            "Get_user_OOF": [
+              "Succeeded",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "flowSystemMetadata": {
+              "swaggerOperationId": "CheckMemberGroups"
+            }
+          },
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_azuread']['connectionId']"
+              }
+            },
+            "method": "post",
+            "body": {
+              "groupIds": [
+                "aea6609f-6a75-40c6-8c2c-467843b09c22"
+              ]
+            },
+            "path": "/v1.0/users/@{encodeURIComponent(triggerBody()?['CompromisedEntity'])}/checkMemberGroups",
+            "authentication": "@parameters('$authentication')"
+          },
+          "description": "Verify if the user is part of the 'Executives' group"
+        },
+        "Condition": {
+          "actions": {
+            "Resolve_Cloud_App_Security_alert": {
+              "runAfter": {},
+              "metadata": {
+                "flowSystemMetadata": {
+                  "swaggerOperationId": "MCAS_RESOLVE_ALERT"
+                }
+              },
+              "type": "ApiConnection",
+              "inputs": {
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['shared_cloudappsecurity']['connectionId']"
+                  }
+                },
+                "method": "post",
+                "body": {
+                  "filters": {
+                    "id": {
+                      "eq": [
+                        "@triggerBody()?['ProviderAlertId']"
+                      ]
+                    }
+                  },
+                  "comment": "Resolved using Microsoft Flow - user OOF is 'ON', and is not part of the 'Exec' group"
+                },
+                "path": "/cas/api/v1/alerts/resolve/",
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {
+            "Check_group_membership": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Compose_message": {
+                "runAfter": {},
+                "type": "Compose",
+                "inputs": "<font size=\"3\" color=\"red\"><b>New MCAS alert !</b></font><br><br>\n<b>Severity</b>: @{triggerBody()?['Severity']}<br>\n<b>Alert</b>: @{triggerBody()?['AlertDisplayName']} <br>\n<b>Alert ID</b>: @{triggerBody()?['ProviderAlertId']}<br>\n<a href=\"@{concat('https://portal.cloudappsecurity.com/#/alerts/',triggerBody()?['ProviderAlertId'])}\">Alert direct link</a><br>\n<b>Description</b>:<br>\n @{triggerBody()?['Description']}<br><br>\n\nUser manager (<b>@{body('Get_manager_info_of_user_')?['displayName']}</b>) requested further investigation on <b>@{triggerBody()?['CompromisedEntity']}</b>\n<Br>\n---------------------------------------------------------------------------------\n<br>\n<b>Name</b>: @{body('Get_user_profile')?['displayName']}<br>\n<b>Email</b>: @{body('Get_user_profile')?['mail']}<br>\n<b>OOF message</b>: @{body('Get_user_OOF')?['value']?[0]?['automaticReplies']?['message']}<br>\n<b>Department</b>: @{body('Get_user_profile')?['department']}<br>\n<b>Title</b>: @{body('Get_user_profile')?['jobTitle']}<br>\n<b>Phone</b>: @{body('Get_user_profile')?['mobilePhone']}<br>\n<b>Country</b>: @{body('Get_user_profile')?['country']}<br>\n<b>City</b>: @{body('Get_user_profile')?['city']}\n"
+              },
+              "Post_a_message_in_SOC_team_channel": {
+                "runAfter": {
+                  "Compose_message": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "flowSystemMetadata": {
+                    "swaggerOperationId": "PostMessageToChannelV3"
+                  }
+                },
+                "type": "ApiConnection",
+                "inputs": {
+                  "host": {
+                    "connection": {
+                      "name": "@parameters('$connections')['shared_teams']['connectionId']"
+                    }
+                  },
+                  "method": "post",
+                  "body": {
+                    "body": {
+                      "content": "<p>@{outputs('Compose_message')}</p>",
+                      "contentType": "html"
+                    }
+                  },
+                  "path": "/v3/beta/teams/@{encodeURIComponent('d05ba55c-593e-4bfa-8011-26e0626b5c14')}/channels/@{encodeURIComponent('19:8e52aee721394ab78563596463c067dc@thread.skype')}/messages",
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(body('Get_user_OOF')?['AutomaticReplies']?['Message'])",
+                  "@false"
+                ]
+              },
+              {
+                "not": {
+                  "contains": [
+                    "@body('Check_group_membership')",
+                    "aea6609f-6a75-40c6-8c2c-467843b09c22"
+                  ]
+                }
+              }
+            ]
+          },
+          "type": "If",
+          "description": "If user OOF is turned on and the user is not part of the 'Executives' group"
+        },
+        "Get_manager_info_of_user_": {
+          "runAfter": {
+            "Get_user_profile": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "flowSystemMetadata": {
+              "swaggerOperationId": "Manager_V2"
+            }
+          },
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_office365users']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/codeless/v1.0/users/@{encodeURIComponent(triggerBody()?['CompromisedEntity'])}/manager",
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "connectionReferences": {
+      "shared_office365users": {
+        "api": {
+          "id": "/providers/Microsoft.PowerApps/apis/shared_office365users"
+        },
+        "source": "NotSpecified",
+        "connectionNamingMode": "NotSpecified"
+      },
+      "shared_office365": {
+        "api": {
+          "id": "/providers/Microsoft.PowerApps/apis/shared_office365"
+        },
+        "source": "NotSpecified",
+        "connectionNamingMode": "NotSpecified"
+      },
+      "shared_azuread": {
+        "api": {
+          "id": "/providers/Microsoft.PowerApps/apis/shared_azuread"
+        },
+        "source": "NotSpecified",
+        "connectionNamingMode": "NotSpecified"
+      },
+      "shared_cloudappsecurity": {
+        "api": {
+          "id": "/providers/Microsoft.PowerApps/apis/shared_cloudappsecurity"
+        },
+        "source": "NotSpecified",
+        "connectionNamingMode": "NotSpecified"
+      },
+      "shared_teams": {
+        "api": {
+          "id": "/providers/Microsoft.PowerApps/apis/shared_teams"
+        },
+        "source": "NotSpecified",
+        "connectionNamingMode": "NotSpecified"
+      }
+    }
+  }
+}
