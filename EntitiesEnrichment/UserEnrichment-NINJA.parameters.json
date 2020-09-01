@@ -1,0 +1,18 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {        
+        "logicAppName": {
+            "value": "UserEnrichment"
+        },
+        "tenantId": {
+            "value": "4b2462a4-bbee-495a-a0e1-f23ae524cc9c"
+        },
+        "clientId": {
+            "value": "2c51cdd9-691e-438e-a136-81d806485b36"
+        },
+        "clientSecret": {
+            "value": "0ly7v+-]v-UHboj4D1g:s2+6bZ:cX.p."
+        }
+    }
+}
