@@ -3,16 +3,16 @@
     "contentVersion": "1.0.0.0",
     "parameters": {        
         "logicAppName": {
-            "value": "UserEnrichment"
+            "value": "MdatpUserEnrichment"
         },
         "tenantId": {
-            "value": "449d3327-f8ae-4ad2-af77-3335d04f0905"
+            "value": "4b2462a4-bbee-495a-a0e1-f23ae524cc9c"
         },
         "clientId": {
-            "value": "'af8b60a9-c42a-4219-9d47-463dadd84fe6'"
+            "value": "2c51cdd9-691e-438e-a136-81d806485b36"
         },
         "clientSecret": {
-            "value": "~THDn_vI948qIQbK_rxrj-4KzvG1a-41Oq"
+            "value": "0ly7v+-]v-UHboj4D1g:s2+6bZ:cX.p."
         }
     }
 }

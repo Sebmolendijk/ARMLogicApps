@@ -1,0 +1,2 @@
+Import-Module Az.Resources
+New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\MdatpComputerEnrichment.template.json -TemplateParameterFile .\UserEnrichment.parameters.json -Name MdatpComputerEnrichment -Verbose

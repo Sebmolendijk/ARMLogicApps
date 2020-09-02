@@ -1,0 +1,165 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"logicAppName": {
+			"defaultValue": "UserEnrichment",
+            "type": "string",
+			"metadata": {
+				"description": "The name of the logic app to create."
+			}
+		},
+        "tenantId": {
+            "type": "string",
+            "metadata": {
+                "description": "tenant where the app/user exist"
+            }
+        },
+        "clientId": {
+            "type": "securestring",
+            "metadata": {
+				"description": "Azure AD app Id"
+			}
+        },
+        "clientSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Azure AD app generated secret"
+            }  
+        },
+		"location": {
+			"type": "string",
+			"defaultValue": "[resourceGroup().location]",
+			"metadata": {
+				"description": "Location for all resources."
+			}
+		}
+	},
+	"variables": {},
+	"resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "semolend"
+            },
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('tenantId')]"
+                        },
+                        "clientSecret": {
+                            "type": "securestring",
+                            "defaultvalue": "[parameters('clientSecret')]"
+                        },
+                        "clientId": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('clientId')]"                            
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "userPrincipalName": {
+                                            "type": "string"
+                                        },
+                                        "samAccountName": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Parse_request": {
+                            "runAfter": {},
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@triggerBody()",
+                                "schema": {
+                                    "properties": {
+                                        "samAccountName": {
+                                            "type": "string"
+                                        },
+                                        "userPrincipalName": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Compose_validateSam": {
+                            "runAfter": {
+                                "Parse_request": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": "@if(equals(body('Parse_request')?['samAccountName'], ''), 'samAccountName_empty', body('Parse_request')?['samAccountName'])",
+                            "description": "Validate that sam is not empty. If empty, returns dummy value"
+                        },
+                        "Advanced_Hunting": {
+                            "runAfter": {
+                                "Compose_validateSam": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "audience": "https://api.securitycenter.windows.com/",
+                                    "clientId": "[parameters('clientId')]",
+                                    "secret": "[parameters('clientSecret')]",
+                                    "tenant": "[parameters('tenantId')]",
+                                    "type": "ActiveDirectoryOAuth"
+                                },
+                                
+                                "body": {
+                                            "Query":
+                                            "let timeToSearch = ago(7d);
+                                            DeviceInfo
+                                            | where (LoggedOnUsers contains \"@{outputs('Compose_validateSam')}\") or (LoggedOnUsers contains \"@{body('Parse_request')?['userPrincipalName']}\") and Timestamp > timeToSearch
+                                            | distinct DeviceName, DeviceId, PublicIP
+                                            | summarize IPAddressHistory = make_list(pack('PublicIP', PublicIP)) by DeviceName, DeviceId"
+                                },
+                                "method": "POST",
+                                "uri": "https://api.securitycenter.windows.com/api/advancedqueries/run"
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Advanced_Hunting": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Advanced_Hunting')?['Results']",
+                                "statusCode": 200
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                }
+            }
+        }
+    ],
+	"outputs": {}
+}
