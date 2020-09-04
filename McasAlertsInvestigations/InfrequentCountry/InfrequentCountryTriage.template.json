@@ -1,0 +1,532 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.1",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "InfrequentCountryTriage",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the logic app."
+            }
+        },
+        "location": {
+            "defaultValue": "[resourceGroup().location]",
+            "type": "String",
+            "metadata": {
+                "description": "Location of the logic app."
+            }
+        },
+        "mcasAPI": {
+            "type": "secureobject"
+        },
+        "office365users_Connection_Name": {
+            "defaultValue": "office365users",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "office365_Connection_Name": {
+            "defaultValue": "office365",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "azuread_Connection_Name": {
+            "defaultValue": "azuread",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "teams_Connection_Name": {
+            "defaultValue": "teams",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('office365users_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365users')]"
+                },
+                "displayName": "[parameters('office365users_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('office365_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]"
+                },
+                "displayName": "[parameters('office365_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('azuread_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuread')]"
+                },
+                "displayName": "[parameters('azuread_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('teams_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'teams')]"
+                },
+                "displayName": "[parameters('teams_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', parameters('office365users_Connection_Name'))]",
+                "[resourceId('Microsoft.Web/connections', parameters('office365_Connection_Name'))]",
+                "[resourceId('Microsoft.Web/connections', parameters('azuread_Connection_Name'))]"
+            ],
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "mcasAPI": {
+                            "defaultValue": "[parameters('mcasAPI')]",
+                            "type": "secureobject"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "$authentication": {
+                            "defaultValue": {},
+                            "type": "SecureObject"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "$id": {},
+                                        "AlertDisplayName": {
+                                            "type": "string"
+                                        },
+                                        "AlertDisplayNameLocalizedKey": {},
+                                        "AlertType": {
+                                            "type": "string"
+                                        },
+                                        "AzureResourceId": {},
+                                        "CompromisedEntity": {
+                                            "type": "string"
+                                        },
+                                        "CorrelationKey": {
+                                            "type": "string"
+                                        },
+                                        "Description": {
+                                            "type": "string"
+                                        },
+                                        "DescriptionArguments": {},
+                                        "DescriptionLocalizedKey": {},
+                                        "EndTimeUtc": {
+                                            "type": "string"
+                                        },
+                                        "Metadata": {
+                                            "properties": {
+                                                "Component": {
+                                                    "type": "string"
+                                                },
+                                                "ComponentVersion": {
+                                                    "type": "string"
+                                                },
+                                                "DuplicateAlertsContextId": {
+                                                    "type": "string"
+                                                },
+                                                "MCASAlertCategory": {
+                                                    "type": "string"
+                                                },
+                                                "MCASDC": {
+                                                    "type": "string"
+                                                },
+                                                "MCASPolicySubType": {},
+                                                "MCASPolicyType": {
+                                                    "type": "string"
+                                                },
+                                                "MCASTenantId": {
+                                                    "type": "string"
+                                                },
+                                                "RequestId": {},
+                                                "RequestIds": {
+                                                    "type": "string"
+                                                },
+                                                "SuspiciousIps": {
+                                                    "type": "string"
+                                                },
+                                                "TenantId": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "ProviderAlertId": {
+                                            "type": "string"
+                                        },
+                                        "ProviderAlertStatus": {},
+                                        "ProviderName": {
+                                            "type": "string"
+                                        },
+                                        "RemediationSteps": {},
+                                        "Severity": {
+                                            "type": "string"
+                                        },
+                                        "StartTimeUtc": {
+                                            "type": "string"
+                                        },
+                                        "Status": {
+                                            "type": "string"
+                                        },
+                                        "TimeGenerated": {
+                                            "type": "string"
+                                        },
+                                        "VendorName": {
+                                            "type": "string"
+                                        },
+                                        "Version": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "kind": "Http",
+                            "type": "Request"
+                        }
+                    },
+                    "actions": {
+                        "Parse_alert": {
+                            "inputs": {
+                                "content": "@triggerBody()",
+                                "schema": {
+                                    "properties": {
+                                        "$id": {},
+                                        "AlertDisplayName": {
+                                            "type": "string"
+                                        },
+                                        "AlertDisplayNameLocalizedKey": {},
+                                        "AlertType": {
+                                            "type": "string"
+                                        },
+                                        "AzureResourceId": {},
+                                        "CompromisedEntity": {
+                                            "type": "string"
+                                        },
+                                        "CorrelationKey": {
+                                            "type": "string"
+                                        },
+                                        "Description": {
+                                            "type": "string"
+                                        },
+                                        "DescriptionArguments": {},
+                                        "DescriptionLocalizedKey": {},
+                                        "EndTimeUtc": {
+                                            "type": "string"
+                                        },
+                                        "Metadata": {
+                                            "properties": {
+                                                "Component": {
+                                                    "type": "string"
+                                                },
+                                                "ComponentVersion": {
+                                                    "type": "string"
+                                                },
+                                                "DuplicateAlertsContextId": {
+                                                    "type": "string"
+                                                },
+                                                "MCASAlertCategory": {
+                                                    "type": "string"
+                                                },
+                                                "MCASDC": {
+                                                    "type": "string"
+                                                },
+                                                "MCASPolicySubType": {},
+                                                "MCASPolicyType": {
+                                                    "type": "string"
+                                                },
+                                                "MCASTenantId": {
+                                                    "type": "string"
+                                                },
+                                                "RequestId": {},
+                                                "RequestIds": {
+                                                    "type": "string"
+                                                },
+                                                "SuspiciousIps": {
+                                                    "type": "string"
+                                                },
+                                                "TenantId": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "ProviderAlertId": {
+                                            "type": "string"
+                                        },
+                                        "ProviderAlertStatus": {},
+                                        "ProviderName": {
+                                            "type": "string"
+                                        },
+                                        "RemediationSteps": {},
+                                        "Severity": {
+                                            "type": "string"
+                                        },
+                                        "StartTimeUtc": {
+                                            "type": "string"
+                                        },
+                                        "Status": {
+                                            "type": "string"
+                                        },
+                                        "TimeGenerated": {
+                                            "type": "string"
+                                        },
+                                        "VendorName": {
+                                            "type": "string"
+                                        },
+                                        "Version": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "runAfter": {},
+                            "type": "ParseJson"
+                        },
+                        "Get_user_profile": {
+                            "runAfter": {
+                                "Parse_alert": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "metadata": {
+                                "flowSystemMetadata": {
+                                    "swaggerOperationId": "UserProfile_V2"
+                                }
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365users']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/codeless/v1.0/users/@{encodeURIComponent(body('Parse_alert')?['CompromisedEntity'])}",
+                                "authentication": "@parameters('$authentication')"
+                            }
+                        },
+                        "Get_user_OOF": {
+                            "runAfter": {
+                                "Get_manager_info_of_user_": [
+                                    "Succeeded",
+                                    "TimedOut",
+                                    "Failed"
+                                ]
+                            },
+                            "metadata": {
+                                "flowSystemMetadata": {
+                                    "swaggerOperationId": "GetMailTips"
+                                }
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/MailTips",
+                                "queries": {
+                                    "mailboxAddress": "@body('Get_user_profile')?['mail']"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                            }
+                        },
+                        "Check_group_membership": {
+                            "runAfter": {
+                                "Get_user_OOF": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            },
+                            "metadata": {
+                                "flowSystemMetadata": {
+                                    "swaggerOperationId": "CheckMemberGroups"
+                                }
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuread']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "groupIds": [
+                                        "aea6609f-6a75-40c6-8c2c-467843b09c22"
+                                    ]
+                                },
+                                "path": "/v1.0/users/@{encodeURIComponent(body('Parse_alert')?['CompromisedEntity'])}/checkMemberGroups",
+                                "authentication": "@parameters('$authentication')"
+                            },
+                            "description": "Verify if the user is part of the 'Executives' group"
+                        },
+                        "Condition": {
+                            "actions": {
+                                "Resolve_Cloud_App_Security_alert": {
+                                    "runAfter": {},
+                                    "type": "Http",
+                                    "inputs": {
+                                        "body": {
+                                            "filters": {
+                                                "id": {
+                                                    "eq": [
+                                                        "@body('Parse_alert')?['ProviderAlertId']"
+                                                    ]
+                                                }
+                                            },
+                                            "comment": "Resolved using Microsoft Flow - user OOF is 'ON', and is not part of the 'Exec' group"
+                                        },
+                                        "headers": {
+                                            "Authorization": "[concat('token ',parameters('mcasAPI').apiToken)]"
+                                        },
+                                        "method": "POST",
+                                        "uri": "[concat(parameters('mcasAPI').tenantUrl, '/cas/api/v1/alerts/resolve/')]"
+                                    }
+                                    
+                                }
+                            },
+                            "runAfter": {
+                                "Check_group_membership": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "else": {
+                                "actions": {
+                                    "Compose_message": {
+                                        "runAfter": {},
+                                        "type": "Compose",
+                                        "inputs": "<font size=\"3\" color=\"red\"><b>New MCAS alert !</b></font><br><br>\n<b>Severity</b>: @{body('Parse_alert')?['Severity']}<br>\n<b>Alert</b>: @{body('Parse_alert')?['AlertDisplayName']} <br>\n<b>Alert ID</b>: @{body('Parse_alert')?['ProviderAlertId']}<br>\n<a href=\"@{concat('https://portal.cloudappsecurity.com/#/alerts/',body('Parse_alert')?['ProviderAlertId'])}\">Alert direct link</a><br>\n<b>Description</b>:<br>\n @{body('Parse_alert')?['Description']}<br><br>\n\nUser manager (<b>@{body('Get_manager_info_of_user_')?['displayName']}</b>) requested further investigation on <b>@{body('Parse_alert')?['CompromisedEntity']}</b>\n<Br>\n---------------------------------------------------------------------------------\n<br>\n<b>Name</b>: @{body('Get_user_profile')?['displayName']}<br>\n<b>Email</b>: @{body('Get_user_profile')?['mail']}<br>\n<b>OOF message</b>: @{body('Get_user_OOF')?['value']?[0]?['automaticReplies']?['message']}<br>\n<b>Department</b>: @{body('Get_user_profile')?['department']}<br>\n<b>Title</b>: @{body('Get_user_profile')?['jobTitle']}<br>\n<b>Phone</b>: @{body('Get_user_profile')?['mobilePhone']}<br>\n<b>Country</b>: @{body('Get_user_profile')?['country']}<br>\n<b>City</b>: @{body('Get_user_profile')?['city']}\n"
+                                    }
+                                    
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@empty(body('Get_user_OOF')?['AutomaticReplies']?['Message'])",
+                                            "@false"
+                                        ]
+                                    },
+                                    {
+                                        "not": {
+                                            "contains": [
+                                                "@body('Check_group_membership')",
+                                                "aea6609f-6a75-40c6-8c2c-467843b09c22"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            "type": "If",
+                            "description": "If user OOF is turned on and the user is not part of the 'Executives' group"
+                        },
+                        "Get_manager_info_of_user_": {
+                            "runAfter": {
+                                "Get_user_profile": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "metadata": {
+                                "flowSystemMetadata": {
+                                    "swaggerOperationId": "Manager_V2"
+                                }
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365users']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/codeless/v1.0/users/@{encodeURIComponent(body('Parse_alert')?['CompromisedEntity'])}/manager",
+                                "authentication": "@parameters('$authentication')"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "office365users": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365users')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365users_Connection_Name'))]",
+                                "connectionName": "[parameters('office365users_Connection_Name')]"
+                            },
+                            "office365": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365_Connection_Name'))]",
+                                "connectionName": "[parameters('office365_Connection_Name')]"
+                            },
+                            "azuread": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuread')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('azuread_Connection_Name'))]",
+                                "connectionName": "[parameters('azuread_Connection_Name')]"
+                            },
+                            "teams": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'teams')]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('teams_Connection_Name'))]",
+                                "connectionName": "[parameters('teams_Connection_Name')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+    ],
+    "outputs": {
+        
+        "logicAppUrl": {
+            "type": "string",
+            "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/manual'), '2016-06-01').value]"
+        }
+    }
+}

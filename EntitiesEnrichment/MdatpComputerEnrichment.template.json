@@ -3,7 +3,7 @@
 	"contentVersion": "1.0.0.0",
 	"parameters": {
 		"logicAppName": {
-			"defaultValue": "UserEnrichment",
+			"defaultValue": "MdatpComputerEnrichment",
             "type": "string",
 			"metadata": {
 				"description": "The name of the logic app to create."
@@ -134,7 +134,7 @@
                                             DeviceInfo
                                             | where (LoggedOnUsers contains \"@{outputs('Compose_validateSam')}\") or (LoggedOnUsers contains \"@{body('Parse_request')?['userPrincipalName']}\") and Timestamp > timeToSearch
                                             | distinct DeviceName, DeviceId, PublicIP
-                                            | summarize IPAddressHistory = make_list(pack('PublicIP', PublicIP)) by DeviceName, DeviceId"
+                                            | summarize IPAddressHistory    )) by DeviceName, DeviceId"
                                 },
                                 "method": "POST",
                                 "uri": "https://api.securitycenter.windows.com/api/advancedqueries/run"

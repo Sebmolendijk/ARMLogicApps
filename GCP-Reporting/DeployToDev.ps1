@@ -1,2 +1,0 @@
-Import-Module Az.Resources
-New-AzResourceGroupDeployment -ResourceGroupName CSPM -TemplateFile .\GCP-Reporting.template.json -TemplateParameterFile .\GCP-Reporting.parameters.json -Name DevGPC-Reporting -Verbose
