@@ -6,7 +6,14 @@
             "value": {
                 "apiToken": "your_mcas_API_token",
                 "tenantUrl": "https://your_tenant.tenantRegion.portal.cloudappsecurity.com"
-            }
+            },
+            "servicePrincipal": {
+                "value": {
+                    "tenantId": "AAD_tenant",
+                    "clientId": "SP_client_ID",
+                    "clientSecret": "SP_secret"
+                }
+            }  
             
         }           
 
