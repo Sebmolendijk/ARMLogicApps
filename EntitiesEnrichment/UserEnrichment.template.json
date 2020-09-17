@@ -28,7 +28,7 @@
             "name": "[parameters('logicAppName')]",
             "location": "[parameters('location')]",
             "tags": {
-                "Owner": "semolend"
+                "Owner": "Automation"
             },
             "properties": {
                 "state": "Disabled",
@@ -122,258 +122,7 @@
                                     }
                                 ]
                             }
-                        },
-                        "AAD_Objects": {
-                            "actions": {
-                                "Get_user_owned_objects": {
-                                    "runAfter": {},
-                                    "type": "Http",
-                                    "inputs": {
-                                        "authentication": {
-                                            "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                            "type": "ActiveDirectoryOAuth"
-                                        },
-                                        "method": "GET",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/ownedObjects "
-                                    }
-                                },
-                                "Parse_owned_objects": {
-                                    "runAfter": {
-                                        "Get_user_owned_objects": [
-                                            "Succeeded"
-                                        ]
-                                    },
-                                    "type": "ParseJson",
-                                    "inputs": {
-                                        "content": "@body('Get_user_owned_objects')",
-                                        "schema": {
-                                            "properties": {
-                                                "@@odata.context": {},
-                                                "value": {
-                                                    "items": {
-                                                        "properties": {
-                                                            "@@odata.type": {},
-                                                            "addIns": {
-                                                                "type": "array"
-                                                            },
-                                                            "api": {
-                                                                "properties": {
-                                                                    "acceptMappedClaims": {},
-                                                                    "knownClientApplications": {
-                                                                        "type": "array"
-                                                                    },
-                                                                    "oauth2PermissionScopes": {
-                                                                        "type": "array"
-                                                                    },
-                                                                    "preAuthorizedApplications": {
-                                                                        "type": "array"
-                                                                    },
-                                                                    "requestedAccessTokenVersion": {},
-                                                                    "resourceSpecificApplicationPermissions": {
-                                                                        "type": "array"
-                                                                    }
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "appId": {},
-                                                            "appRoles": {
-                                                                "type": "array"
-                                                            },
-                                                            "applicationTemplateId": {},
-                                                            "classification": {},
-                                                            "createdByAppId": {},
-                                                            "createdDateTime": {},
-                                                            "deletedDateTime": {},
-                                                            "description": {},
-                                                            "displayName": {},
-                                                            "expirationDateTime": {},
-                                                            "groupMembershipClaims": {},
-                                                            "groupTypes": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "id": {},
-                                                            "identifierUris": {
-                                                                "type": "array"
-                                                            },
-                                                            "info": {
-                                                                "properties": {
-                                                                    "logoUrl": {},
-                                                                    "marketingUrl": {},
-                                                                    "privacyStatementUrl": {},
-                                                                    "supportUrl": {},
-                                                                    "termsOfServiceUrl": {}
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "isAssignableToRole": {},
-                                                            "isAuthorizationServiceEnabled": {},
-                                                            "isDeviceOnlyAuthSupported": {},
-                                                            "isFallbackPublicClient": {},
-                                                            "keyCredentials": {
-                                                                "type": "array"
-                                                            },
-                                                            "mail": {},
-                                                            "mailEnabled": {
-                                                                "type": "boolean"
-                                                            },
-                                                            "mailNickname": {},
-                                                            "membershipRule": {},
-                                                            "membershipRuleProcessingState": {},
-                                                            "onPremisesDomainName": {},
-                                                            "onPremisesLastSyncDateTime": {},
-                                                            "onPremisesNetBiosName": {},
-                                                            "onPremisesProvisioningErrors": {
-                                                                "type": "array"
-                                                            },
-                                                            "onPremisesSamAccountName": {},
-                                                            "onPremisesSecurityIdentifier": {},
-                                                            "onPremisesSyncEnabled": {},
-                                                            "optionalClaims": {},
-                                                            "orgRestrictions": {
-                                                                "type": "array"
-                                                            },
-                                                            "parentalControlSettings": {
-                                                                "properties": {
-                                                                    "countriesBlockedForMinors": {
-                                                                        "type": "array"
-                                                                    },
-                                                                    "legalAgeGroupRule": {}
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "passwordCredentials": {
-                                                                "items": {
-                                                                    "properties": {
-                                                                        "customKeyIdentifier": {},
-                                                                        "displayName": {},
-                                                                        "endDateTime": {},
-                                                                        "hint": {},
-                                                                        "keyId": {},
-                                                                        "secretText": {},
-                                                                        "startDateTime": {}
-                                                                    },
-                                                                    "required": [],
-                                                                    "type": "object"
-                                                                },
-                                                                "type": "array"
-                                                            },
-                                                            "preferredDataLocation": {},
-                                                            "preferredLanguage": {},
-                                                            "proxyAddresses": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "publicClient": {
-                                                                "properties": {
-                                                                    "redirectUris": {
-                                                                        "type": "array"
-                                                                    }
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "publisherDomain": {},
-                                                            "renewedDateTime": {},
-                                                            "requiredResourceAccess": {
-                                                                "items": {
-                                                                    "properties": {
-                                                                        "resourceAccess": {
-                                                                            "items": {
-                                                                                "properties": {
-                                                                                    "id": {},
-                                                                                    "type": {}
-                                                                                },
-                                                                                "required": [],
-                                                                                "type": "object"
-                                                                            },
-                                                                            "type": "array"
-                                                                        },
-                                                                        "resourceAppId": {}
-                                                                    },
-                                                                    "required": [],
-                                                                    "type": "object"
-                                                                },
-                                                                "type": "array"
-                                                            },
-                                                            "resourceBehaviorOptions": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "resourceProvisioningOptions": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "securityEnabled": {
-                                                                "type": "boolean"
-                                                            },
-                                                            "securityIdentifier": {},
-                                                            "signInAudience": {},
-                                                            "spa": {
-                                                                "properties": {
-                                                                    "redirectUris": {
-                                                                        "type": "array"
-                                                                    }
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "tags": {
-                                                                "type": "array"
-                                                            },
-                                                            "theme": {},
-                                                            "tokenEncryptionKeyId": {},
-                                                            "verifiedPublisher": {
-                                                                "properties": {
-                                                                    "addedDateTime": {},
-                                                                    "displayName": {},
-                                                                    "verifiedPublisherId": {}
-                                                                },
-                                                                "type": "object"
-                                                            },
-                                                            "visibility": {},
-                                                            "web": {
-                                                                "properties": {
-                                                                    "homePageUrl": {},
-                                                                    "implicitGrantSettings": {
-                                                                        "properties": {
-                                                                            "enableAccessTokenIssuance": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "enableIdTokenIssuance": {
-                                                                                "type": "boolean"
-                                                                            }
-                                                                        },
-                                                                        "type": "object"
-                                                                    },
-                                                                    "logoutUrl": {},
-                                                                    "redirectUris": {
-                                                                        "items": {},
-                                                                        "type": "array"
-                                                                    }
-                                                                },
-                                                                "type": "object"
-                                                            }
-                                                        },
-                                                        "required": [],
-                                                        "type": "object"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    }
-                                }
-                            },
-                            "runAfter": {
-                                "User": [
-                                    "Succeeded"
-                                ]
-                            },
-                            "type": "Scope"
-                        },
+                        },                        
                         "Compose_JSON": {
                             "actions": {
                                 "Compose_user_json": {
@@ -390,7 +139,8 @@
                                         "createdDateTime": "@body('Get_user_details')?['createdDateTime']",
                                         "department": "@body('Get_user_details')?['department']",
                                         "devices": {
-                                            "aadDevices": "@variables('devices')"
+                                            "aadDevices": "@variables('devices')",
+                                            "mdatpDevices": "@body('Advanced_Hunting')?['Results']"
                                         },
                                         "displayName": "@body('Get_user_details')?['displayName']",
                                         "employeeId": "@body('Get_user_details')?['employeeId']",
@@ -435,11 +185,9 @@
                                 }
                             },
                             "runAfter": {
-                                "AAD_Objects": [
-                                    "Succeeded"
-                                ],
                                 "Devices": [
-                                    "Succeeded"
+                                    "Succeeded",
+                                    "Failed"
                                 ],
                                 "Mailbox": [
                                     "Succeeded"
@@ -452,51 +200,6 @@
                         },
                         "Devices": {
                             "actions": {
-                                "For_each_device": {
-                                    "foreach": "@body('Parse_user_owned_devices')?['value']",
-                                    "actions": {
-                                        "Append_to_devices": {
-                                            "runAfter": {
-                                                "Compose_device": [
-                                                    "Succeeded"
-                                                ]
-                                            },
-                                            "type": "AppendToArrayVariable",
-                                            "inputs": {
-                                                "name": "devices",
-                                                "value": "@outputs('Compose_device')"
-                                            }
-                                        },
-                                        "Compose_device": {
-                                            "runAfter": {},
-                                            "type": "Compose",
-                                            "inputs": {
-                                                "Manufacturer": "@items('For_each_device')?['Manufacturer']",
-                                                "Model": "@items('For_each_device')?['Model']",
-                                                "accountEnabled": "@items('For_each_device')?['accountEnabled']",
-                                                "approximateLastSignInDateTime": "@items('For_each_device')?['approximateLastSignInDateTime']",
-                                                "complianceExpirationDateTime": "@items('For_each_device')?['complianceExpirationDateTime']",
-                                                "deviceId": "@items('For_each_device')?['deviceId']",
-                                                "displayName": "@items('For_each_device')?['displayName']",
-                                                "id": "@items('For_each_device')?['id']",
-                                                "isCompliant": "@items('For_each_device')?['isCompliant']",
-                                                "isManaged": "@items('For_each_device')?['isManaged']",
-                                                "onPremisesLastSyncDateTime": "@items('For_each_device')?['onPremisesLastSyncDateTime']",
-                                                "onPremisesSyncEnabled": "@items('For_each_device')?['onPremisesSyncEnabled']",
-                                                "operatingSystem": "@items('For_each_device')?['operatingSystem']",
-                                                "operatingSystemVersion": "@items('For_each_device')?['operatingSystemVersion']",
-                                                "profileType": "@items('For_each_device')?['profileType']",
-                                                "trustType": "@items('For_each_device')?['trustType']"
-                                            }
-                                        }
-                                    },
-                                    "runAfter": {
-                                        "Parse_user_owned_devices": [
-                                            "Succeeded"
-                                        ]
-                                    },
-                                    "type": "Foreach"
-                                },
                                 "Get_user_owned_devices": {
                                     "runAfter": {},
                                     "type": "Http",
@@ -578,6 +281,75 @@
                                             },
                                             "type": "object"
                                         }
+                                    }
+                                },
+                                "For_each_device": {
+                                    "foreach": "@body('Parse_user_owned_devices')?['value']",
+                                    "actions": {
+                                        "Append_to_devices": {
+                                            "runAfter": {
+                                                "Compose_device": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToArrayVariable",
+                                            "inputs": {
+                                                "name": "devices",
+                                                "value": "@outputs('Compose_device')"
+                                            }
+                                        },
+                                        "Compose_device": {
+                                            "runAfter": {},
+                                            "type": "Compose",
+                                            "inputs": {
+                                                "Manufacturer": "@items('For_each_device')?['Manufacturer']",
+                                                "Model": "@items('For_each_device')?['Model']",
+                                                "accountEnabled": "@items('For_each_device')?['accountEnabled']",
+                                                "approximateLastSignInDateTime": "@items('For_each_device')?['approximateLastSignInDateTime']",
+                                                "complianceExpirationDateTime": "@items('For_each_device')?['complianceExpirationDateTime']",
+                                                "deviceId": "@items('For_each_device')?['deviceId']",
+                                                "displayName": "@items('For_each_device')?['displayName']",
+                                                "id": "@items('For_each_device')?['id']",
+                                                "isCompliant": "@items('For_each_device')?['isCompliant']",
+                                                "isManaged": "@items('For_each_device')?['isManaged']",
+                                                "onPremisesLastSyncDateTime": "@items('For_each_device')?['onPremisesLastSyncDateTime']",
+                                                "onPremisesSyncEnabled": "@items('For_each_device')?['onPremisesSyncEnabled']",
+                                                "operatingSystem": "@items('For_each_device')?['operatingSystem']",
+                                                "operatingSystemVersion": "@items('For_each_device')?['operatingSystemVersion']",
+                                                "profileType": "@items('For_each_device')?['profileType']",
+                                                "trustType": "@items('For_each_device')?['trustType']"
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Parse_user_owned_devices": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Foreach"
+                                },
+                                "Advanced_Hunting": {
+                                    "runAfter": {
+                                        "For_each_device": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://api.securitycenter.windows.com/",
+                                            "clientId": "[parameters('servicePrincipal').clientId]",
+                                            "secret": "[parameters('servicePrincipal').clientSecret]",
+                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        
+                                        "body": {
+                                                    "Query":
+                                                    "let timeToSearch = ago(7d); DeviceInfo | where (LoggedOnUsers contains \"@{body('Get_user_details')?['onPremisesSamAccountName']}\") or (LoggedOnUsers contains \"@{body('Get_user_details')?['userPrincipalName']}\") and Timestamp > timeToSearch | distinct DeviceName, DeviceId, PublicIP \n | sort by Timestamp desc \n| summarize IPAddressHistory = make_list(PublicIP) by DeviceName, DeviceId"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://api.securitycenter.windows.com/api/advancedqueries/run"
                                     }
                                 }
                             },
