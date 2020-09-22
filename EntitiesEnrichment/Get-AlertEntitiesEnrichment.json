@@ -124,6 +124,20 @@
                     "actions": {
                         "Users_enrichment": {
                 "actions": {
+                    "Get_accounts": {
+                        "inputs": {
+                            "body": "@triggerBody()?['Entities']",
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/entities/account"
+                        },
+                        "runAfter": {},
+                        "type": "ApiConnection"
+                    },
                     "For_each_user": {
                         "actions": {
                             "Call_UserEnrichment_LogicApp": {
@@ -155,6 +169,9 @@
                                            riskState: @{body('Call_UserEnrichment_LogicApp')?['riskState']}\n
                                            riskDetail: @{body('Call_UserEnrichment_LogicApp')?['riskDetail']}\n
                                            riskLastUpdatedDateTime: @{body('Call_UserEnrichment_LogicApp')?['riskLastUpdatedDateTime']}\n
+                                           threatScore: @{body('Call_UserEnrichment_LogicApp')?['threatScore']}\n
+                                           threatScoreHistory: @{body('Call_UserEnrichment_LogicApp')?['threatScoreHistory']}\n
+                                           locations: @{body('Call_UserEnrichment_LogicApp')?['locations']}\n
                                            ssprActivities: @{body('Call_UserEnrichment_LogicApp')?['ssprActivities']}\n
                                            state: @{body('Call_UserEnrichment_LogicApp')?['state']}\n
                                            AccountEnabled: @{body('Call_UserEnrichment_LogicApp')?['accountEnabled']}\n
@@ -334,21 +351,8 @@
                             ]
                         },
                         "type": "Foreach"
-                    },
-                    "Get_accounts": {
-                        "inputs": {
-                            "body": "@triggerBody()?['Entities']",
-                            "host": {
-                                "connection": {
-                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
-                                }
-                            },
-                            "method": "post",
-                            "path": "/entities/account"
-                        },
-                        "runAfter": {},
-                        "type": "ApiConnection"
                     }
+                    
                 },
                 "runAfter": {},
                 "type": "Scope"
