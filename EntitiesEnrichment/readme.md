@@ -1,11 +1,12 @@
-# Resolve-McasInfrequentCountryAlerts
+# Get-AlertEntitiesEnrichment
 author: Sebastien Molendijk - Microsoft
 
-This playbook allows you to automatically resolve Microsoft Cloud App Security [Infrequent Country alerts](http://aka.ms/mcasinvestigationguide#activity-from-infrequent-country) based on several criterias like:
+This playbook allows you to enrich your alerts entities using solutions like:
 
-* The user out-of-office status
-* The user group membership
-* The user risk level status in Azure AD
+* Azure Active Directory
+* Azure Active Directory Identity Protection
+* Microsoft Cloud App Security
+* Microsoft Defender for Endpoints (MDATP)
 
 <br>
 
