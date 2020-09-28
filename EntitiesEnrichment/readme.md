@@ -244,9 +244,11 @@ You can use the **Deploy.ps1** script, after updating the required parameters in
 
 <br>
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FInfrequentCountry%2Fazuredeploy.json" target="_blank">
+**Get-AlertEntitiesEnrichment:**
+
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FEntitiesEnrichment%2FGet-AlertEntitiesEnrichment.json" target="_blank">
     <img src="https://aka.ms/deploytoazurebutton"/>
 </a>
-<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FInfrequentCountry%2Fazuredeploy.json" target="_blank">
+<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FEntitiesEnrichment%2FGet-AlertEntitiesEnrichment.json" target="_blank">
 <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png"/>
 </a>
