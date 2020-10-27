@@ -258,8 +258,10 @@
     </tr>
     <tr>
     <th>Admin roles:</th>
+    <td>@{body('Call_UserEnrichment_LogicApp')?['adminRoles']}</td>
+    </tr>
     <th>Mfa Registered:</th>
-    <td> @{body('Call_UserEnrichment_LogicApp')?['isMfaRegistered']}</td>
+    <td>@{body('Call_UserEnrichment_LogicApp')?['isMfaRegistered']}</td>
     </tr>
     <tr>
     <th>Registered Mfa Methods:</th>
