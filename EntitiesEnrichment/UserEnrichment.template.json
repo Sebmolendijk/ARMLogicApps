@@ -221,119 +221,6 @@
                                         "Case_200_OK": {
                                             "case": 200,
                                             "actions": {
-                                                "Get_user_AAD_risk_status": {
-                                                    "runAfter": {
-                                                        "Parse_MFA-SSPR": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                                            "type": "ActiveDirectoryOAuth"
-                                                        },
-                                                        "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/riskyUsers/@{body('Parse_user_details')?['id']}/"
-                                                    }
-                                                },
-                                                "Get_user_MFA-SSPR_status": {
-                                                    "runAfter": {
-                                                        "Parse_user_manager": [
-                                                            "Succeeded",
-                                                            "Failed"
-                                                        ]
-                                                    },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                                            "type": "ActiveDirectoryOAuth"
-                                                        },
-                                                        "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/reports/credentialUserRegistrationDetails?$filter=userPrincipalName  eq '@{body('Parse_trigger')?['userPrincipalName']}'"
-                                                    }
-                                                },
-                                                "Get_user_manager": {
-                                                    "runAfter": {
-                                                        "Parse_user_details": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                                            "type": "ActiveDirectoryOAuth"
-                                                        },
-                                                        "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/manager"
-                                                    }
-                                                },
-                                                "Parse_MFA-SSPR": {
-                                                    "runAfter": {
-                                                        "Get_user_MFA-SSPR_status": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "ParseJson",
-                                                    "inputs": {
-                                                        "content": "@body('Get_user_MFA-SSPR_status')",
-                                                        "schema": {
-                                                            "properties": {
-                                                                "@@odata.context": {
-                                                                    "type": "string"
-                                                                },
-                                                                "value": {
-                                                                    "items": {
-                                                                        "properties": {
-                                                                            "authMethods": {
-                                                                                "items": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "type": "array"
-                                                                            },
-                                                                            "id": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "isCapable": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "isEnabled": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "isMfaRegistered": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "isRegistered": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "userDisplayName": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "userPrincipalName": {
-                                                                                "type": "string"
-                                                                            }
-                                                                        },
-                                                                        "required": [],
-                                                                        "type": "object"
-                                                                    },
-                                                                    "type": "array"
-                                                                }
-                                                            },
-                                                            "type": "object"
-                                                        }
-                                                    }
-                                                },
                                                 "Parse_user_details": {
                                                     "runAfter": {},
                                                     "type": "ParseJson",
@@ -426,129 +313,128 @@
                                                         }
                                                     }
                                                 },
-                                                "Parse_user_manager": {
+                                                "Get_user_manager": {
+                                                    "runAfter": {
+                                                        "Parse_user_details": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "authentication": {
+                                                            "audience": "https://graph.microsoft.com/",
+                                                            "clientId": "[parameters('servicePrincipal').clientId]",
+                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
+                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "type": "ActiveDirectoryOAuth"
+                                                        },
+                                                        "method": "GET",
+                                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/manager"
+                                                    }
+                                                },
+                                                "Get_user_MFA-SSPR_status": {
                                                     "runAfter": {
                                                         "Get_user_manager": [
                                                             "Succeeded",
                                                             "Failed"
                                                         ]
                                                     },
-                                                    "type": "ParseJson",
+                                                    "type": "Http",
                                                     "inputs": {
-                                                        "content": "@body('Get_user_details')",
-                                                        "schema": {
-                                                            "properties": {
-                                                                "@@odata.context": {},
-                                                                "accountEnabled": {
-                                                                    "type": "boolean"
-                                                                },
-                                                                "ageGroup": {},
-                                                                "businessPhones": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "city": {},
-                                                                "companyName": {},
-                                                                "consentProvidedForMinor": {},
-                                                                "country": {},
-                                                                "createdDateTime": {},
-                                                                "creationType": {},
-                                                                "deletedDateTime": {},
-                                                                "department": {},
-                                                                "deviceKeys": {
-                                                                    "type": "array"
-                                                                },
-                                                                "displayName": {},
-                                                                "employeeId": {},
-                                                                "externalUserState": {},
-                                                                "externalUserStateChangeDateTime": {},
-                                                                "faxNumber": {},
-                                                                "givenName": {},
-                                                                "id": {},
-                                                                "identities": {
-                                                                    "items": {
-                                                                        "properties": {
-                                                                            "issuer": {},
-                                                                            "issuerAssignedId": {},
-                                                                            "signInType": {}
-                                                                        },
-                                                                        "required": [],
-                                                                        "type": "object"
-                                                                    },
-                                                                    "type": "array"
-                                                                },
-                                                                "imAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "isResourceAccount": {},
-                                                                "jobTitle": {},
-                                                                "legalAgeGroupClassification": {},
-                                                                "mail": {},
-                                                                "mailNickname": {},
-                                                                "mobilePhone": {},
-                                                                "officeLocation": {},
-                                                                "onPremisesDistinguishedName": {},
-                                                                "onPremisesDomainName": {},
-                                                                "onPremisesImmutableId": {},
-                                                                "onPremisesLastSyncDateTime": {},
-                                                                "onPremisesSamAccountName": {},
-                                                                "onPremisesSecurityIdentifier": {},
-                                                                "onPremisesSyncEnabled": {},
-                                                                "onPremisesUserPrincipalName": {},
-                                                                "otherMails": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "passwordPolicies": {},
-                                                                "passwordProfile": {},
-                                                                "postalCode": {},
-                                                                "preferredDataLocation": {},
-                                                                "preferredLanguage": {},
-                                                                "proxyAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "refreshTokensValidFromDateTime": {},
-                                                                "showInAddressList": {},
-                                                                "signInSessionsValidFromDateTime": {},
-                                                                "state": {},
-                                                                "streetAddress": {},
-                                                                "surname": {},
-                                                                "usageLocation": {},
-                                                                "userPrincipalName": {},
-                                                                "userType": {}
-                                                            },
-                                                            "type": "object"
-                                                        }
+                                                        "authentication": {
+                                                            "audience": "https://graph.microsoft.com/",
+                                                            "clientId": "[parameters('servicePrincipal').clientId]",
+                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
+                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "type": "ActiveDirectoryOAuth"
+                                                        },
+                                                        "method": "GET",
+                                                        "uri": "https://graph.microsoft.com/beta/reports/credentialUserRegistrationDetails?$filter=userPrincipalName  eq '@{body('Parse_trigger')?['userPrincipalName']}'"
                                                     }
                                                 },
-                                                "Parse_user_risk_status": {
+                                                "Parse_MFA-SSPR": {
                                                     "runAfter": {
-                                                        "Get_user_AAD_risk_status": [
+                                                        "Get_user_MFA-SSPR_status": [
                                                             "Succeeded"
                                                         ]
                                                     },
                                                     "type": "ParseJson",
                                                     "inputs": {
-                                                        "content": "@body('Get_user_AAD_risk_status')",
+                                                        "content": "@body('Get_user_MFA-SSPR_status')",
                                                         "schema": {
                                                             "properties": {
-                                                                "@@odata.context": {},
-                                                                "id": {},
-                                                                "isDeleted": {},
-                                                                "isGuest": {},
-                                                                "isProcessing": {},
-                                                                "riskDetail": {},
-                                                                "riskLastUpdatedDateTime": {},
-                                                                "riskLevel": {},
-                                                                "riskState": {},
-                                                                "userDisplayName": {},
-                                                                "userPrincipalName": {}
+                                                                "@@odata.context": {
+                                                                    "type": "string"
+                                                                },
+                                                                "value": {
+                                                                    "items": {
+                                                                        "properties": {
+                                                                            "authMethods": {
+                                                                                "items": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "type": "array"
+                                                                            },
+                                                                            "id": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "isCapable": {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            "isEnabled": {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            "isMfaRegistered": {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            "isRegistered": {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            "userDisplayName": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "userPrincipalName": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        },
+                                                                        "required": [],
+                                                                        "type": "object"
+                                                                    },
+                                                                    "type": "array"
+                                                                }
                                                             },
                                                             "type": "object"
                                                         }
                                                     }
+                                                },
+                                                "Get_user_AAD_risk_status": {
+                                                    "runAfter": {
+                                                        "Parse_MFA-SSPR": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Http",
+                                                    "inputs": {
+                                                        "authentication": {
+                                                            "audience": "https://graph.microsoft.com/",
+                                                            "clientId": "[parameters('servicePrincipal').clientId]",
+                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
+                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "type": "ActiveDirectoryOAuth"
+                                                        },
+                                                        "method": "GET",
+                                                        "uri": "https://graph.microsoft.com/beta/riskyUsers/@{body('Parse_user_details')?['id']}/"
+                                                    }
+                                                },
+                                                "Compose_riskStatus": {
+                                                    "inputs": "@outputs('Get_user_AAD_risk_status')['statusCode']",
+                                                    "runAfter": {
+                                                        "Get_user_AAD_risk_status": [
+                                                            "Succeeded",
+                                                            "Failed"
+                                                        ]
+                                                    },
+                                                    "type": "Compose"
                                                 }
                                             }
                                         }
