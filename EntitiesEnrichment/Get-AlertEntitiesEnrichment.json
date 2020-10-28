@@ -167,6 +167,151 @@
                                             "runAfter": {},
                                             "type": "Workflow"
                                         },
+                                        "MDATP_devices_table": {
+                                            "inputs": {
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['devices']?['mdatpDevices']"
+                                            },
+                                            "runAfter": {
+                                                "Inbox_rules_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "AAD_Devices_table": {
+                                            "inputs": {
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['devices']?['aadDevices']"
+                                            },
+                                            "runAfter": {
+                                                "MDATP_devices_table": [
+                                                    "Succeeded",
+                                                    "Failed"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Threatscore_History_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "Date",
+                                                        "value": "@item()?['date']"
+                                                    },
+                                                    {
+                                                        "header": "Score",
+                                                        "value": "@item()?['score']"
+                                                    },
+                                                    {
+                                                        "header": "ScoreHigherThanXPercent",
+                                                        "value": "@item()?['percentile']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['threatScoreHistory']?['body']"
+                                            },
+                                            "runAfter": {
+                                                "Call_UserEnrichment_LogicApp": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Admin_roles_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "Name",
+                                                        "value": "@item()?['displayName']"
+                                                    },
+                                                    {
+                                                        "header": "Description",
+                                                        "value": "@item()?['description']"
+                                                    },
+                                                    {
+                                                        "header": "Built-in",
+                                                        "value": "@item()?['isBuiltIn']"
+                                                    },
+                                                    {
+                                                        "header": "Enabled",
+                                                        "value": "@item()?['isEnabled']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['adminRoles']"
+                                            },
+                                            "runAfter": {
+                                                "Locations_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Inbox_rules_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "Sequence",
+                                                        "value": "@item()?['sequence']"
+                                                    },
+                                                    {
+                                                        "header": "Name",
+                                                        "value": "@item()?['displayName']"
+                                                    },
+                                                    {
+                                                        "header": "Enabled",
+                                                        "value": "@item()?['isEnabled']"
+                                                    },
+                                                    {
+                                                        "header": "Conditions",
+                                                        "value": "@item()?['conditions']"
+                                                    },
+                                                    {
+                                                        "header": "Actions",
+                                                        "value": "@item()?['actions']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['mailboxInboxRules']"
+                                            },
+                                            "runAfter": {
+                                                "Admin_roles_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Locations_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "Country",
+                                                        "value": "@item()?['country']"
+                                                    },
+                                                    {
+                                                        "header": "UsagePercentage",
+                                                        "value": "@item()?['percentageTotalActivities']"
+                                                    },
+                                                    {
+                                                        "header": "LastActivity",
+                                                        "value": "@item()?['lastActivity']"
+                                                    },
+                                                    {
+                                                        "header": "ActivitiesLast30Days",
+                                                        "value": "@item()?['activities']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@body('Call_UserEnrichment_LogicApp')?['locationsUsage']"
+                                            },
+                                            "runAfter": {
+                                                "Threatscore_History_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
                                         "Compose_comments_part1": {
                                             "inputs": "<h2>User Location details</h2>
     <table style=\"width:75%\">
@@ -215,7 +360,7 @@
     <td>@{body('Call_UserEnrichment_LogicApp')?['mobilePhone']}</td>
     </tr>",
                                             "runAfter": {
-                                                "Call_UserEnrichment_LogicApp": [
+                                                "AAD_Devices_table": [
                                                     "Succeeded"
                                                 ]
                                             },
@@ -258,7 +403,7 @@
     </tr>
     <tr>
     <th>Admin roles:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['adminRoles']}</td>
+    <td>@{body('Admin_roles_table')}</td>
     </tr>
     <th>Mfa Registered:</th>
     <td>@{body('Call_UserEnrichment_LogicApp')?['isMfaRegistered']}</td>
@@ -272,7 +417,7 @@
     <td> @{body('Call_UserEnrichment_LogicApp')?['isSsprRegistered']}</td>
     </tr>",
                                             "runAfter": {
-                                                "Call_UserEnrichment_LogicApp": [
+                                                "AAD_Devices_table": [
                                                     "Succeeded"
                                                 ]
                                             },
@@ -293,13 +438,13 @@
                                         "Compose_comments_part3": {
                                             "inputs": "<h2>Additional details</h2><table style=\"width:75%\">
     <tr><th>Locations usage:</th>
-    <td> @{body('Call_UserEnrichment_LogicApp')?['locationsUsage']}</td></tr><tr>
+    <td>@{body('Locations_table')}</td></tr><tr>
     <th>MCAS Threat Score:</th>
     <td>@{body('Call_UserEnrichment_LogicApp')?['threatScore']}</td>
     </tr>
     <tr>
     <th>Threat Score History:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['threatScoreHistory']}</td>
+    <td>@{body('Threatscore_History_table')}</td>
     </tr>
     <tr>
     <th>AAD Risk Level:</th>
@@ -322,7 +467,7 @@
     <td>@{body('Call_UserEnrichment_LogicApp')?['ssprActivities']}</td>
     </tr>",
                                             "runAfter": {
-                                                "Call_UserEnrichment_LogicApp": [
+                                                "AAD_Devices_table": [
                                                     "Succeeded"
                                                 ]
                                             },
@@ -357,19 +502,19 @@
     </tr>
     <tr>
     <th>Mailbox Inbox Rules:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['mailboxInboxRules']}</td>
+    <td>@{body('Inbox_rules_table')}</td>
     </tr>
     <table style=\"width:75%\">
     <tr>
     <th>Azure AD Devices:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['devices']?['aadDevices']}</td>
+    <td>@{body('AAD_Devices_table')}</td>
     </tr>
     <tr>
     <th>MDATP Devices:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['devices']?['mdatpDevices']}</td>
+    <td>@{body('MDATP_devices_table')}</td>
     </tr>",
                                             "runAfter": {
-                                                "Call_UserEnrichment_LogicApp": [
+                                                "AAD_Devices_table": [
                                                     "Succeeded"
                                                 ]
                                             },
@@ -427,7 +572,7 @@
     <td>@{body('Call_UserEnrichment_LogicApp')?['refreshTokensValidFromDateTime']}}</td>
     </tr>",
                                             "runAfter": {
-                                                "Call_UserEnrichment_LogicApp": [
+                                                "AAD_Devices_table": [
                                                     "Succeeded"
                                                 ]
                                             },
