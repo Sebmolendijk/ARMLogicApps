@@ -1,0 +1,551 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "IPsEnrichment",
+            "type": "string",
+            "metadata": {
+                "description": "The name of the logic app to create."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        },
+        "servicePrincipal": {
+            "type": "secureObject"
+        },
+        "mcasAPI": {
+            "type": "secureobject"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "Automation"
+            },
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "servicePrincipal": {
+                            "type": "secureobject",
+                            "defaultValue": "[parameters('servicePrincipal')]"
+                        },
+                        "mcasAPI": {
+                            "defaultValue": "[parameters('mcasAPI')]",
+                            "type": "secureobject"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "userPrincipalName": {
+                                            "type": "string"
+                                        },
+                                        "samAccountName": {
+                                            "type": "string"
+                                        },
+                                        "ipAddresses": {
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Parse_trigger": {
+                            "runAfter": {},
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@triggerBody()",
+                                "schema": {
+                                    "properties": {
+                                        "userPrincipalName": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Initialize_corpIPs": {
+                            "runAfter": {
+                                "Parse_trigger": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "corpIPs",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_devicesIPs": {
+                            "runAfter": {
+                                "Initialize_corpIPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "devicesIPs",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_devices": {
+                            "runAfter": {
+                                "Initialize_devicesIPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "devices",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_riskyIPs": {
+                            "runAfter": {
+                                "Initialize_devices": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "riskyIPs",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_cloudIPs": {
+                            "runAfter": {
+                                "Initialize_riskyIPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "cloudIPs",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_otherIPs": {
+                            "runAfter": {
+                                "Initialize_cloudIPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "otherIPs",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_notFound": {
+                            "runAfter": {
+                                "Initialize_cloudIPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "notFound",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Devices_IPs": {
+                            "actions": {
+                                "Advanced_Hunting": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://api.securitycenter.windows.com/",
+                                            "clientId": "2c51cdd9-691e-438e-a136-81d806485b36",
+                                            "secret": "0ly7v+-]v-UHboj4D1g:s2+6bZ:cX.p.",
+                                            "tenant": "4b2462a4-bbee-495a-a0e1-f23ae524cc9c",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "Query": "let timeToSearch = ago(14d); DeviceInfo | where ((LoggedOnUsers contains \"@{body('Parse_trigger')?['samAccountName']}\") or (LoggedOnUsers contains \"@{body('Parse_trigger')?['userPrincipalName']}\")) and Timestamp > timeToSearch and PublicIP in (\"@{join(triggerBody()?['ipAddresses'], '\",\"')}\") | distinct DeviceName, DeviceId, PublicIP  | summarize IPAddressHistory = make_list(PublicIP) by DeviceName, DeviceId"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://api.securitycenter.windows.com/api/advancedqueries/run"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Http"
+                                },
+                                "If_devices": {
+                                    "actions": {
+                                        "For_each_device": {
+                                            "actions": {
+                                                "Compose_device_ips": {
+                                                    "inputs": "@items('For_each_device')?['IPAddressHistory']",
+                                                    "runAfter": {},
+                                                    "type": "Compose"
+                                                },
+                                                "Join_IPs_arrays": {
+                                                    "inputs": "@union(variables('devicesIPs'), outputs('Compose_device_ips'))",
+                                                    "runAfter": {
+                                                        "Compose_device_ips": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Compose"
+                                                },
+                                                "Set_devicesIPs": {
+                                                    "inputs": {
+                                                        "name": "devicesIPs",
+                                                        "value": "@outputs('Join_IPs_arrays')"
+                                                    },
+                                                    "runAfter": {
+                                                        "Join_IPs_arrays": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "SetVariable"
+                                                }
+                                            },
+                                            "foreach": "@variables('devices')",
+                                            "runAfter": {
+                                                "Set_devices": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "runtimeConfiguration": {
+                                                "concurrency": {
+                                                    "repetitions": 1
+                                                }
+                                            },
+                                            "type": "Foreach"
+                                        },
+                                        "Set_devices": {
+                                            "inputs": {
+                                                "name": "devices",
+                                                "value": "@body('Advanced_Hunting')?['Results']"
+                                            },
+                                            "runAfter": {},
+                                            "type": "SetVariable"
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "greater": [
+                                                    "@length(body('Advanced_Hunting')?['Results'])",
+                                                    0
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {
+                                        "Advanced_Hunting": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_notFound": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "MCAS_IPs": {
+                            "actions": {
+                                "For_each_ip": {
+                                    "actions": {
+                                        "Get_MCAS_IP": {
+                                            "description": "Collect user locations habits from MCAS",
+                                            "inputs": {
+                                                "body": {
+                                                    "filters": {
+                                                        "ip.address": {
+                                                            "eq": [
+                                                                "@{items('For_each_ip')}"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "limit": 1,
+                                                    "performAsyncTotal": true,
+                                                    "skip": 0,
+                                                    "sortDirection": "desc",
+                                                    "sortField": "date"
+                                                },
+                                                "headers": {
+                                                    "Authorization": "token XEpMTFdfQUZBRU4BWlwdAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNOSxtKGxYaS0wXSRkXFx4fGRtOSUsZS0weG0wdGBYWFhcfFx0eSUsXHh5JTE1OHRdJGxkbGEocHkkWTBscS0wX",
+                                                    "Content-Type": "application/json"
+                                                },
+                                                "method": "POST",
+                                                "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/activities/"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Http"
+                                        },
+                                        "If_IP_exists": {
+                                            "actions": {
+                                                "Add_to_relevant_ip_list": {
+                                                    "cases": {
+                                                        "Case_cloud_proxy_network_ip": {
+                                                            "actions": {
+                                                                "Append_to_cloudIPs": {
+                                                                    "inputs": {
+                                                                        "name": "cloudIPs",
+                                                                        "value": "@outputs('Compose_IP')"
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "AppendToArrayVariable"
+                                                                }
+                                                            },
+                                                            "case": "cloud_proxy_network_ip"
+                                                        },
+                                                        "Case_corporate": {
+                                                            "actions": {
+                                                                "Append_to_corpIPs_2": {
+                                                                    "inputs": {
+                                                                        "name": "corpIPs",
+                                                                        "value": "@outputs('Compose_IP')"
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "AppendToArrayVariable"
+                                                                }
+                                                            },
+                                                            "case": "internal"
+                                                        },
+                                                        "Case_none": {
+                                                            "actions": {
+                                                                "If_IP_not_used_from_trusted_device": {
+                                                                    "actions": {
+                                                                        "Append_to_othersIPs": {
+                                                                            "inputs": {
+                                                                                "name": "otherIPs",
+                                                                                "value": "@outputs('Compose_IP')"
+                                                                            },
+                                                                            "runAfter": {},
+                                                                            "type": "AppendToArrayVariable"
+                                                                        }
+                                                                    },
+                                                                    "expression": {
+                                                                        "and": [
+                                                                            {
+                                                                                "not": {
+                                                                                    "contains": [
+                                                                                        "@variables('devicesIPs')",
+                                                                                        "@items('For_each_ip')"
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "If"
+                                                                }
+                                                            },
+                                                            "case": "none"
+                                                        },
+                                                        "Case_risky": {
+                                                            "actions": {
+                                                                "If_risky_IP_not_used_from_trusted_device": {
+                                                                    "actions": {
+                                                                        "Append_to_riskyIPs": {
+                                                                            "inputs": {
+                                                                                "name": "riskyIPs",
+                                                                                "value": "@outputs('Compose_IP')"
+                                                                            },
+                                                                            "runAfter": {},
+                                                                            "type": "AppendToArrayVariable"
+                                                                        }
+                                                                    },
+                                                                    "expression": {
+                                                                        "and": [
+                                                                            {
+                                                                                "not": {
+                                                                                    "contains": [
+                                                                                        "@variables('devicesIPs')",
+                                                                                        "@items('For_each_ip')"
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "If"
+                                                                }
+                                                            },
+                                                            "case": "risky"
+                                                        },
+                                                        "Case_vpn": {
+                                                            "actions": {
+                                                                "Append_to_corpIPs": {
+                                                                    "inputs": {
+                                                                        "name": "corpIPs",
+                                                                        "value": "@outputs('Compose_IP')"
+                                                                    },
+                                                                    "runAfter": {},
+                                                                    "type": "AppendToArrayVariable"
+                                                                }
+                                                            },
+                                                            "case": "vpn"
+                                                        }
+                                                    },
+                                                    "default": {
+                                                        "actions": {}
+                                                    },
+                                                    "expression": "@toLower(outputs('Compose_IP')?['location']?['categoryValue'])",
+                                                    "runAfter": {
+                                                        "Compose_IP": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Switch"
+                                                },
+                                                "Compose_IP": {
+                                                    "inputs": {
+                                                        "ipAddress": "@items('For_each_ip')",
+                                                        "location": "@body('Get_MCAS_IP')?['data']?[0]?['location']"
+                                                    },
+                                                    "runAfter": {},
+                                                    "type": "Compose"
+                                                }
+                                            },
+                                            "else": {
+                                                "actions": {
+                                                    "Append_to_notFound": {
+                                                        "inputs": {
+                                                            "name": "notFound",
+                                                            "value": "@items('For_each_ip')"
+                                                        },
+                                                        "runAfter": {},
+                                                        "type": "AppendToArrayVariable"
+                                                    }
+                                                }
+                                            },
+                                            "expression": {
+                                                "and": [
+                                                    {
+                                                        "greater": [
+                                                            "@length(body('Get_MCAS_IP')?['data'])",
+                                                            0
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "runAfter": {
+                                                "Get_MCAS_IP": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "If"
+                                        }
+                                    },
+                                    "foreach": "@triggerBody()?['ipAddresses']",
+                                    "runAfter": {},
+                                    "type": "Foreach"
+                                }
+                            },
+                            "runAfter": {
+                                "Devices_IPs": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Compose_JSON": {
+                            "actions": {
+                                "Compose_user_json": {
+                                    "runAfter": {},
+                                    "type": "Compose",
+                                    "inputs": {
+                                        "cloudIPs": "@variables('cloudIPs')",
+                                        "corpIPs": "@variables('corpIPs')",
+                                        "devices": "@variables('devices')",
+                                        "devicesIPs": "@variables('devicesIPs')",
+                                        "notFound": "@variables('notFound')",
+                                        "otherIPs": "@variables('otherIPs')",
+                                        "riskyIPs": "@variables('riskyIPs')"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "MCAS_IPs": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Compose_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@outputs('Compose_user_json')",
+                                "statusCode": 200
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                }
+            }
+        }
+    ],
+    "outputs": {
+
+        "logicAppUrl": {
+            "type": "string",
+            "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/manual'), '2016-06-01').value]"
+        }
+    }
+}

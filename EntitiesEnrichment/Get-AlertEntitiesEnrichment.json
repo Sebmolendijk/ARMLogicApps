@@ -2,7 +2,7 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-       "logicAppName": {
+        "logicAppName": {
             "defaultValue": "Get-AlertEntitiesEnrichment",
             "type": "String",
             "metadata": {
@@ -53,7 +53,7 @@
         }
     },
     "resources": [
-       {
+        {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
             "name": "[parameters('azuresentinel_Connection_Name')]",
@@ -248,6 +248,40 @@
                                             },
                                             "type": "Table"
                                         },
+                                        "Manager_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "DisplayName",
+                                                        "value": "@item()?['displayName']"
+                                                    },
+                                                    {
+                                                        "header": "UserPrincipalName",
+                                                        "value": "@item()?['userPrincipalName']"
+                                                    },
+                                                    {
+                                                        "header": "Mail",
+                                                        "value": "@item()?['mail']"
+                                                    },
+                                                    {
+                                                        "header": "JobTitle",
+                                                        "value": "@item()?['jobTitle']"
+                                                    },
+                                                    {
+                                                        "header": "MobilePhone",
+                                                        "value": "@item()?['mobilePhone']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@createArray(body('Call_UserEnrichment_LogicApp')?['manager'])"
+                                            },
+                                            "runAfter": {
+                                                "Admin_roles_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
                                         "Inbox_rules_table": {
                                             "inputs": {
                                                 "columns": [
@@ -276,7 +310,7 @@
                                                 "from": "@body('Call_UserEnrichment_LogicApp')?['mailboxInboxRules']"
                                             },
                                             "runAfter": {
-                                                "Admin_roles_table": [
+                                                "Manager_table": [
                                                     "Succeeded"
                                                 ]
                                             },
@@ -498,20 +532,11 @@
     </tr>
     <tr>
     <th>Out-Of-Office Message:</th>
-    <td>@{body('Call_UserEnrichment_LogicApp')?['mailboxOofMessage']}</td>
+    <td>@{createArray(body('Call_UserEnrichment_LogicApp')?['mailboxOofMessage'])}</td>
     </tr>
     <tr>
     <th>Mailbox Inbox Rules:</th>
-    <td>@{body('Inbox_rules_table')}</td>
-    </tr>
-    <table style=\"width:75%\">
-    <tr>
-    <th>Azure AD Devices:</th>
-    <td>@{body('AAD_Devices_table')}</td>
-    </tr>
-    <tr>
-    <th>MDATP Devices:</th>
-    <td>@{body('MDATP_devices_table')}</td>
+    <td>@{replace(body('Inbox_rules_table'), '&quot;', '\"')}</td>
     </tr>",
                                             "runAfter": {
                                                 "AAD_Devices_table": [
@@ -590,6 +615,36 @@
                                             },
                                             "type": "AppendToArrayVariable"
                                         },
+                                        "Compose_comments_part6": {
+                                            "inputs": "<h2>Devices details</h2>
+    <table style=\"width:75%\">
+    <tr>
+    <th>Azure AD Devices:</th>
+    <td>@{replace(body('AAD_Devices_table'), '&quot;', '\"')}</td>
+    </tr>
+    <tr>
+    <th>MDATP Devices:</th>
+    <td>@{replace(body('MDATP_Devices_table'), '&quot;', '\"')}</td>
+    </tr>",
+                                            "runAfter": {
+                                                "AAD_Devices_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Compose"
+                                        },
+                                        "Append_to_comments_part6": {
+                                            "inputs": {
+                                                "name": "comments",
+                                                "value": "@outputs('Compose_comments_part6')"
+                                            },
+                                            "runAfter": {
+                                                "Compose_comments_part6": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToArrayVariable"
+                                        },
                                         "Send_Data_to_Sentinel": {
                                             "runAfter": {
                                                 "Call_UserEnrichment_LogicApp": [
@@ -620,7 +675,7 @@
                                     },
                                     "type": "Foreach"
                                 }
-                                
+
                             },
                             "runAfter": {
                                 "Initialize_comments": [
@@ -670,7 +725,7 @@
                         "value": {
                             "azuresentinel": {
                                 "connectionId": "[resourceId('Microsoft.Web/connections', parameters('azuresentinel_Connection_Name'))]",
-                                "connectionName": "[parameters('azuresentinel_Connection_Name')]" ,
+                                "connectionName": "[parameters('azuresentinel_Connection_Name')]",
                                 "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuresentinel')]"
                             },
                             "[parameters('logAnalytics_connectionName')]": {
@@ -683,10 +738,10 @@
                 }
             }
         }
-        
+
     ],
     "outputs": {
-        
+
         "logicAppUrl": {
             "type": "string",
             "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/When_a_response_to_an_Azure_Sentinel_alert_is_triggered'), '2016-06-01').value]"

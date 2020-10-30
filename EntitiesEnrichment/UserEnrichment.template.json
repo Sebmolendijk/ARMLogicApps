@@ -1,30 +1,30 @@
 {
-	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-	"contentVersion": "1.0.0.0",
-	"parameters": {
-		"logicAppName": {
-			"defaultValue": "UserEnrichment",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "UserEnrichment",
             "type": "string",
-			"metadata": {
-				"description": "The name of the logic app to create."
-			}
-		},
-		"location": {
-			"type": "string",
-			"defaultValue": "[resourceGroup().location]",
-			"metadata": {
-				"description": "Location for all resources."
-			}
-		},
+            "metadata": {
+                "description": "The name of the logic app to create."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        },
         "servicePrincipal": {
             "type": "secureObject"
         },
         "mcasAPI": {
             "type": "secureobject"
         }
-	},
-	"variables": {},
-	"resources": [
+    },
+    "variables": {},
+    "resources": [
         {
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
@@ -64,7 +64,7 @@
                             }
                         }
                     },
-                    "actions": {        
+                    "actions": {
                         "Parse_trigger": {
                             "runAfter": {},
                             "type": "ParseJson",
@@ -349,7 +349,7 @@
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/reports/credentialUserRegistrationDetails?$filter=userPrincipalName  eq '@{body('Parse_trigger')?['userPrincipalName']}'"
+                                                        "uri": "https://graph.microsoft.com/beta/reports/credentialUserRegistrationDetails?$filter=userPrincipalName  eq '@{body('Get_user_details')?['userPrincipalName']}'"
                                                     }
                                                 },
                                                 "Parse_MFA-SSPR": {
@@ -473,7 +473,7 @@
                                 ]
                             },
                             "type": "Scope"
-                        },                    
+                        },
                         "Devices": {
                             "actions": {
                                 "Get_user_owned_devices": {
@@ -488,7 +488,7 @@
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/ownedDevices "
+                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Get_user_details')?['userPrincipalName']}/ownedDevices "
                                     }
                                 },
                                 "Parse_user_owned_devices": {
@@ -604,9 +604,18 @@
                                     },
                                     "type": "Foreach"
                                 },
-                                "Advanced_Hunting": {
+                                "Compose_samAccountName": {
+                                    "inputs": "@if(empty(body('Get_user_details')?['onPremisesSamAccountName']), split(body('Get_user_details')?['userPrincipalName'], '@')?[0], body('Get_user_details')?['onPremisesSamAccountName'])",
                                     "runAfter": {
                                         "For_each_device": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose"
+                                },
+                                "Advanced_Hunting": {
+                                    "runAfter": {
+                                        "Compose_samAccountName": [
                                             "Succeeded"
                                         ]
                                     },
@@ -619,10 +628,9 @@
                                             "tenant": "[parameters('servicePrincipal').tenantId]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
-                                        
+
                                         "body": {
-                                                    "Query":
-                                                    "let timeToSearch = ago(14d); DeviceInfo | where (LoggedOnUsers contains \"@{body('Get_user_details')?['onPremisesSamAccountName']}\") or (LoggedOnUsers contains \"@{body('Get_user_details')?['userPrincipalName']}\") and Timestamp > timeToSearch | distinct DeviceName, DeviceId, PublicIP  | summarize IPAddressHistory = make_list(PublicIP) by DeviceName, DeviceId"
+                                            "Query": "let timeToSearch = ago(14d); DeviceInfo | where (LoggedOnUsers contains \"@{body('Get_user_details')?['onPremisesSamAccountName']}\") or (LoggedOnUsers contains \"@{body('Get_user_details')?['userPrincipalName']}\") and Timestamp > timeToSearch | distinct DeviceName, DeviceId, PublicIP  | summarize IPAddressHistory = make_list(PublicIP) by DeviceName, DeviceId"
                                         },
                                         "method": "POST",
                                         "uri": "https://api.securitycenter.windows.com/api/advancedqueries/run"
@@ -658,7 +666,7 @@
                                             "Content-Type": "application/json"
                                         },
                                         "method": "POST",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/checkMemberGroups"
+                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Get_user_details')?['userPrincipalName']}/checkMemberGroups"
                                     }
                                 },
                                 "Foreach_role": {
@@ -902,7 +910,7 @@
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/mailFolders/@{items('For_each_inbox_rule')?['actions']?['moveToFolder']}"
+                                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Get_user_details')?['userPrincipalName']}/mailFolders/@{items('For_each_inbox_rule')?['actions']?['moveToFolder']}"
                                                     }
                                                 },
                                                 "Parse_inbox_folder": {
@@ -1000,7 +1008,7 @@
                                             "MailTipsOptions": "automaticReplies"
                                         },
                                         "method": "POST",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/getMailTips"
+                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Get_user_details')?['userPrincipalName']}/getMailTips"
                                     }
                                 },
                                 "Get_user_inbox_rules": {
@@ -1015,7 +1023,7 @@
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_trigger')?['userPrincipalName']}/mailFolders/inbox/messageRules"
+                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Get_user_details')?['userPrincipalName']}/mailFolders/inbox/messageRules"
                                     }
                                 },
                                 "Parse_inbox_rules": {
@@ -1185,7 +1193,7 @@
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
-                                        "uri": "https://graph.microsoft.com/beta/reports/userCredentialUsageDetails?$filter=userPrincipalName  eq '@{body('Parse_trigger')?['userPrincipalName']}'"
+                                        "uri": "https://graph.microsoft.com/beta/reports/userCredentialUsageDetails?$filter=userPrincipalName  eq '@{body('Get_user_details')?['userPrincipalName']}'"
                                     }
                                 },
                                 "Parse_SSPR": {
@@ -1232,7 +1240,7 @@
                             },
                             "type": "Scope"
                         },
-                        "Mcas_Profile" :{
+                        "Mcas_Profile": {
                             "actions": {
                                 "Compose_userMcasId": {
                                     "description": "Calculate MCAS user id based on AAD object id",
@@ -1241,7 +1249,7 @@
                                     "runAfter": {}
                                 },
                                 "Set_userMcasId": {
-                                    "description":"convert the value to base64 - this value will be used in API calls",
+                                    "description": "convert the value to base64 - this value will be used in API calls",
                                     "inputs": {
                                         "name": "userMcasId",
                                         "value": "@{base64(outputs('Compose_userMcasId'))}"
@@ -1269,7 +1277,7 @@
                                         "method": "GET",
                                         "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/activities_locations/by_user/?username=@{variables('userMcasId')}/"
                                     }
-                                    
+
                                 },
                                 "Get_total_activities": {
                                     "actions": {
@@ -1291,7 +1299,7 @@
                                     "type": "Foreach"
                                 },
                                 "For_each_location": {
-                                    "actions": {                                        
+                                    "actions": {
                                         "Compose_location_percentage": {
                                             "inputs": "@div(mul(items('For_each_location')[1], 100), variables('locationsTotalActivities'))",
                                             "runAfter": {},
@@ -1348,7 +1356,7 @@
                                         "method": "GET",
                                         "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/entities/@{variables('userMcasId')}/"
                                     }
-                                    
+
                                 },
                                 "Select_threatScore_properties": {
                                     "inputs": {
@@ -1479,8 +1487,8 @@
             }
         }
     ],
-	"outputs": {
-        
+    "outputs": {
+
         "logicAppUrl": {
             "type": "string",
             "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/manual'), '2016-06-01').value]"
