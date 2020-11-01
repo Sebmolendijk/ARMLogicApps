@@ -1,0 +1,656 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.5.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "McasFilesReporting_v1",
+            "type": "string",
+            "metadata": {
+                "description": "The name of the logic app to create."
+            }
+        },
+        "office365_Connection_Name": {
+            "defaultValue": "office365",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "office365users_Connection_Name": {
+            "defaultValue": "office365users",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "sharepointonline_Connection_Name": {
+            "defaultValue": "sharepointonline",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the connection."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('office365_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]"
+                },
+                "displayName": "[parameters('office365_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('office365users_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365users')]"
+                },
+                "displayName": "[parameters('office365users_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('sharepointonline_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'sharepointonline')]"
+                },
+                "displayName": "[parameters('sharepointonline_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "semolend"
+            },
+            "dependsOn": [
+                "[parameters('office365_Connection_Name')]"
+            ],
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "recurrence": {
+                                "frequency": "Day",
+                                "interval": 1
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "Initialize_policyId": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "policyId",
+                                        "type": "string",
+                                        "value": "5bff0553d6b4d3a6030d9647"
+                                    }
+                                ]
+                            },
+                            "runAfter": {},
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_mcasTenant": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "mcasTenant",
+                                        "type": "string",
+                                        "value": "https://seccxpninja.us2.portal.cloudappsecurity.com"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_policyId": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_mcasToken": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "mcasToken",
+                                        "type": "string",
+                                        "value": "XEpMTFdfQUZBRU4BWlwdAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNOSxtKGxYaS0wXSRkXFx4fGRtOSUsZS0weG0wdGBYWFhcfFx0eSUsXHh5JTE1OHRdJGxkbGEocHkkWTBscS0wX"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_mcasTenant": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_matchingFiles": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "matchingFiles",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_mcasToken": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_usersList": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "usersList",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_matchingFiles": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_departmentsEmails": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "departmentsEmails",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_usersList": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_defaultEmailAddress": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "defaultEmailAddress",
+                                        "type": "string",
+                                        "value": "meganb@seccxp.ninja"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_departmentsEmails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_skip": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "skip",
+                                        "type": "integer",
+                                        "value": 0
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_defaultEmailAddress": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Get_departments_emails": {
+                            "actions": {
+                                "Get_department_contacts": {
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "get",
+                                        "path": "/datasets/@{encodeURIComponent(encodeURIComponent('https://seccxpninja.sharepoint.com/sites/SocTeam'))}/tables/@{encodeURIComponent(encodeURIComponent('1187230a-f56a-49ed-9a7f-d4d545259ead'))}/items"
+                                    },
+                                    "runAfter": {},
+                                    "type": "ApiConnection"
+                                },
+                                "For_each_department": {
+                                    "actions": {
+                                        "Append_to_departmentsEmails": {
+                                            "inputs": {
+                                                "name": "departmentsEmails",
+                                                "value": "@outputs('Compose_department')"
+                                            },
+                                            "runAfter": {
+                                                "Compose_department": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToArrayVariable"
+                                        },
+                                        "Compose_department": {
+                                            "inputs": {
+                                                "department": "@items('For_each_department')?['Department']",
+                                                "email": "@items('For_each_department')?['Email']"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Compose"
+                                        }
+                                    },
+                                    "foreach": "@body('Get_department_contacts')?['value']",
+                                    "runAfter": {
+                                        "Get_department_contacts": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Foreach"
+                                }
+
+                            },
+                            "runAfter": {
+                                "Initialize_skip": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Get_files": {
+                            "actions": {
+                                "Get_files_until_hasnext_is_false": {
+                                    "actions": {
+                                        "Condition": {
+                                            "actions": {
+                                                "Increment_skip": {
+                                                    "inputs": {
+                                                        "name": "skip",
+                                                        "value": 100
+                                                    },
+                                                    "runAfter": {},
+                                                    "type": "IncrementVariable"
+                                                },
+                                                "Join_files": {
+                                                    "description": "Add files to the array containing all files matching the policy",
+                                                    "inputs": "@union(variables('matchingFiles'), body('Get_policy_matches')?['data'])",
+                                                    "runAfter": {
+                                                        "Increment_skip": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Compose"
+                                                },
+                                                "Set_matching_files": {
+                                                    "inputs": {
+                                                        "name": "matchingFiles",
+                                                        "value": "@outputs('Join_files')"
+                                                    },
+                                                    "runAfter": {
+                                                        "Join_files": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "SetVariable"
+                                                }
+                                            },
+                                            "else": {
+                                                "actions": {
+                                                    "Delay": {
+                                                        "inputs": {
+                                                            "interval": {
+                                                                "count": 1,
+                                                                "unit": "Minute"
+                                                            }
+                                                        },
+                                                        "runAfter": {},
+                                                        "type": "Wait"
+                                                    }
+                                                }
+                                            },
+                                            "expression": {
+                                                "and": [
+                                                    {
+                                                        "equals": [
+                                                            "@outputs('Get_policy_matches')['statusCode']",
+                                                            200
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "runAfter": {
+                                                "Get_policy_matches": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "If"
+                                        },
+                                        "Get_policy_matches": {
+                                            "inputs": {
+                                                "body": {
+                                                    "filters": {
+                                                        "authorizationStatus": {
+                                                            "eq": [
+                                                                false
+                                                            ]
+                                                        },
+                                                        "policy": {
+                                                            "cabinetmatchedrulesequals": [
+                                                                "@{variables('policyId')}"
+                                                            ]
+                                                        },
+                                                        "quarantined": {
+                                                            "eq": [
+                                                                false
+                                                            ]
+                                                        }
+                                                    },
+                                                    "limit": 100,
+                                                    "performAsyncTotal": true,
+                                                    "skip": "@variables('skip')",
+                                                    "sortDirection": "desc"
+                                                },
+                                                "headers": {
+                                                    "Authorization": "token @{variables('mcasToken')}"
+                                                },
+                                                "method": "POST",
+                                                "uri": "@{variables('mcasTenant')}/cas/api/v1/files/"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Http"
+                                        }
+                                    },
+                                    "expression": "@equals(body('Get_policy_matches')?['hasNext'], false)",
+                                    "limit": {
+                                        "count": 60,
+                                        "timeout": "PT1H"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Until"
+                                },
+                                "Select_fileProperties": {
+                                    "inputs": {
+                                        "from": "@variables('matchingFiles')",
+                                        "select": {
+                                            "fileId": "@item()?['id']",
+                                            "fileName": "@item()?['name']",
+                                            "link": "@item()?['alternateLink']",
+                                            "owner": "@item()?['ownerAddress']",
+                                            "ownerName": "@item()?['ownerName']"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Get_files_until_hasnext_is_false": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Select"
+                                }
+                            },
+                            "runAfter": {
+                                "Get_departments_emails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Prepare_users_list": {
+                            "actions": {
+                                "Add_owner_to_usersList": {
+                                    "actions": {
+                                        "Append_to_usersList": {
+                                            "inputs": {
+                                                "name": "usersList",
+                                                "value": "@outputs('Compose_owner')"
+                                            },
+                                            "runAfter": {
+                                                "Compose_owner": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToArrayVariable"
+                                        },
+                                        "Compose_owner": {
+                                            "inputs": "@items('Add_owner_to_usersList')?['owner']",
+                                            "runAfter": {},
+                                            "type": "Compose"
+                                        }
+                                    },
+                                    "foreach": "@body('Select_fileProperties')",
+                                    "runAfter": {},
+                                    "type": "Foreach"
+                                },
+                                "Remove_duplicates": {
+                                    "inputs": "@union(variables('usersList'), variables('usersList'))",
+                                    "runAfter": {
+                                        "Add_owner_to_usersList": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose"
+                                },
+                                "Set_usersList_without_duplicates": {
+                                    "inputs": {
+                                        "name": "usersList",
+                                        "value": "@outputs('Remove_duplicates')"
+                                    },
+                                    "runAfter": {
+                                        "Remove_duplicates": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
+                                }
+                            },
+                            "runAfter": {
+                                "Get_files": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Distribute_files": {
+                            "actions": {
+                                "For_each_user": {
+                                    "actions": {
+                                        "Compose_Cc": {
+                                            "inputs": "@if(equals(length(body('Find_department_email')), 0), variables('defaultEmailAddress'),body('Find_department_email')?[0]?['email'])",
+                                            "runAfter": {
+                                                "Find_department_email": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Compose"
+                                        },
+                                        "Compose_HTML_style": {
+                                            "inputs": "<!DOCTYPE html>\n<html>\n<head>\n<style>\ntable {\n  font-family: arial, sans-serif;\n  border-collapse: collapse;\n  width: 100%;\n}\n\ntd, th {\n  border: 1px solid #dddddd;\n  text-align: left;\n  padding: 8px;\n}\n\ntr:nth-child(even) {\n  background-color: #dddddd;\n}\n</style>\n</head>\n<body>\n\n@{body('Create_HTML_table')}\n\n\n</body>\n</html>",
+                                            "runAfter": {
+                                                "Create_HTML_table": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Compose"
+                                        },
+                                        "Create_CSV_for_current_user": {
+                                            "inputs": {
+                                                "format": "CSV",
+                                                "from": "@body('Get_all_files_for_this_user')"
+                                            },
+                                            "runAfter": {
+                                                "Get_all_files_for_this_user": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Create_HTML_table": {
+                                            "inputs": {
+                                                "columns": [
+                                                    {
+                                                        "header": "FileName",
+                                                        "value": "@item()?['fileName']"
+                                                    },
+                                                    {
+                                                        "header": "Link",
+                                                        "value": "@item()?['link']"
+                                                    }
+                                                ],
+                                                "format": "HTML",
+                                                "from": "@body('Get_all_files_for_this_user')"
+                                            },
+                                            "runAfter": {
+                                                "Create_CSV_for_current_user": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Table"
+                                        },
+                                        "Find_department_email": {
+                                            "inputs": {
+                                                "from": "@variables('departmentsEmails')",
+                                                "where": "@equals(item()?['department'], body('Get_user_profile')?['department'])"
+                                            },
+                                            "runAfter": {
+                                                "Get_user_profile": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Query"
+                                        },
+                                        "Get_all_files_for_this_user": {
+                                            "inputs": {
+                                                "from": "@body('Select_fileProperties')",
+                                                "where": "@equals(item()?['owner'], items('For_each_user'))"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Query"
+                                        },
+                                        "Get_user_profile": {
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['office365users']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "get",
+                                                "path": "/codeless/v1.0/users/@{encodeURIComponent(items('For_each_user'))}"
+                                            },
+                                            "runAfter": {
+                                                "Compose_HTML_style": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection"
+                                        },
+                                        "Send_an_email_to_user": {
+                                            "inputs": {
+                                                "body": {
+                                                    "Attachments": [
+                                                        {
+                                                            "ContentBytes": "@{base64(body('Create_CSV_for_current_user'))}",
+                                                            "Name": "Your_files.csv"
+                                                        }
+                                                    ],
+                                                    "Body": "<p><br>\nDear @{body('Get_user_profile')?['displayName']},<br>\n<br>\nWe identified the following files you own as violationg our compliance policies.<br>\nPlease review the files and take actions.<br>\n<br>\n<br>\n@{outputs('Compose_HTML_style')}<br>\n<br>\n<br>\nIf you believe those files are compliants, please contact support.<br>\n<br>\n<br>\nBest regards,<br>\nYour IT team<br>\n<br>\n<br>\n-- @{outputs('Compose_Cc')} added in Cc --<br>\n</p>",
+                                                    "Cc": "@{outputs('Compose_Cc')}",
+                                                    "Subject": "File policy violations - department: @{body('Get_user_profile')?['department']}",
+                                                    "To": "@body('Get_user_profile')?['mail']"
+                                                },
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "path": "/v2/Mail"
+                                            },
+                                            "runAfter": {
+                                                "Compose_Cc": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection"
+                                        }
+                                    },
+                                    "foreach": "@variables('usersList')",
+                                    "runAfter": {},
+                                    "runtimeConfiguration": {
+                                        "concurrency": {
+                                            "repetitions": 1
+                                        }
+                                    },
+                                    "type": "Foreach"
+                                }
+                            },
+                            "runAfter": {
+                                "Prepare_users_list": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        }
+
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "office365": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365_Connection_Name'))]",
+                                "connectionName": "[parameters('office365_Connection_Name')]",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]"
+                            },
+                            "office365users": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365users_Connection_Name'))]",
+                                "connectionName": "[parameters('office365users_Connection_Name')]",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365users')]"
+                            },
+                            "sharepointonline": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('sharepointonline_Connection_Name'))]",
+                                "connectionName": "[parameters('sharepointonline_Connection_Name')]",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'sharepointonline')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
