@@ -127,7 +127,7 @@
                                     {
                                         "name": "mcasTenant",
                                         "type": "string",
-                                        "value": "https://seccxpninja.us2.portal.cloudappsecurity.com"
+                                        "value": "https://your_tenant.portal.cloudappsecurity.com"
                                     }
                                 ]
                             },
@@ -144,7 +144,7 @@
                                     {
                                         "name": "mcasToken",
                                         "type": "string",
-                                        "value": "XEpMTFdfQUZBRU4BWlwdAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNOSxtKGxYaS0wXSRkXFx4fGRtOSUsZS0weG0wdGBYWFhcfFx0eSUsXHh5JTE1OHRdJGxkbGEocHkkWTBscS0wX"
+                                        "value": "you_mcas_token"
                                     }
                                 ]
                             },
@@ -209,7 +209,7 @@
                                     {
                                         "name": "defaultEmailAddress",
                                         "type": "string",
-                                        "value": "meganb@seccxp.ninja"
+                                        "value": "default@company.xyz"
                                     }
                                 ]
                             },
