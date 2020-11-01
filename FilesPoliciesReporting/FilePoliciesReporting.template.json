@@ -114,7 +114,7 @@
                                     {
                                         "name": "policyId",
                                         "type": "string",
-                                        "value": "5bff0553d6b4d3a6030d9647"
+                                        "value": "mcasFilePolicyId"
                                     }
                                 ]
                             },
