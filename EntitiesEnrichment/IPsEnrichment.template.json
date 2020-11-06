@@ -182,9 +182,10 @@
                                 ]
                             }
                         },
+
                         "Initialize_notFound": {
                             "runAfter": {
-                                "Initialize_cloudIPs": [
+                                "Initialize_otherIPs": [
                                     "Succeeded"
                                 ]
                             },
@@ -499,17 +500,19 @@
                         "Compose_JSON": {
                             "actions": {
                                 "Compose_user_json": {
+                                    "inputs": [
+                                        {
+                                            "cloudIPs": "@variables('cloudIPs')",
+                                            "corpIPs": "@variables('corpIPs')",
+                                            "devices": "@variables('devices')",
+                                            "devicesIPs": "@variables('devicesIPs')",
+                                            "notFound": "@variables('notFound')",
+                                            "otherIPs": "@variables('otherIPs')",
+                                            "riskyIPs": "@variables('riskyIPs')"
+                                        }
+                                    ],
                                     "runAfter": {},
-                                    "type": "Compose",
-                                    "inputs": {
-                                        "cloudIPs": "@variables('cloudIPs')",
-                                        "corpIPs": "@variables('corpIPs')",
-                                        "devices": "@variables('devices')",
-                                        "devicesIPs": "@variables('devicesIPs')",
-                                        "notFound": "@variables('notFound')",
-                                        "otherIPs": "@variables('otherIPs')",
-                                        "riskyIPs": "@variables('riskyIPs')"
-                                    }
+                                    "type": "Compose"
                                 }
                             },
                             "runAfter": {
