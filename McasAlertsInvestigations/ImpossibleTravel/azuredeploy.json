@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.1",
     "parameters": {
         "logicAppName": {
-            "defaultValue": "ImpossibleTravel_Triage",
+            "defaultValue": "ImpossibleTravel_Triage_Sentinel",
             "type": "String",
             "metadata": {
                 "description": "Name of the logic app."
@@ -87,49 +87,120 @@
                         }
                     },
                     "actions": {
-                        "Initialize_entities": {
+                        "Initialize_userAccountId": {
                             "inputs": {
                                 "variables": [
                                     {
-                                        "name": "entities",
-                                        "type": "array",
-                                        "value": "@triggerBody()?['Entities']"
+                                        "name": "userAccountId",
+                                        "type": "string"
                                     }
                                 ]
                             },
                             "runAfter": {},
                             "type": "InitializeVariable"
                         },
+                        "Initialize_userDetails": {
+                            "description": "Will contain the details returned by UserEnrichment logic app",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "userDetails",
+                                        "type": "object"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_userAccountId": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_enrichedIPsList": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "enrichedIPsList",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_userDetails": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_ipsList": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "ipsList",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_enrichedIPsList": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
                         "Entities_parsing": {
-                            "actions": {                                
-                                "Get_username": {
+                            "actions": {
+                                "Append_every_IP": {
+                                    "actions": {
+                                        "Append_to_ipsList": {
+                                            "inputs": {
+                                                "name": "ipsList",
+                                                "value": "@items('Append_every_IP')?['Address']"
+                                            },
+                                            "runAfter": {},
+                                            "type": "AppendToArrayVariable"
+                                        }
+                                    },
+                                    "foreach": "@body('Entities_-_Get_IPs')?['IPs']",
+                                    "runAfter": {
+                                        "Entities_-_Get_IPs": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Foreach"
+                                },
+                                "Entities_-_Get_Accounts": {
                                     "inputs": {
-                                        "from": "@variables('entities')",
-                                        "where": "@equals(item()['Type'], 'account')"
+                                        "body": "@triggerBody()?['Entities']",
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/entities/account"
                                     },
                                     "runAfter": {},
-                                    "type": "Query"
+                                    "type": "ApiConnection"
                                 },
-                                "Compose_UPN": {
-                                    "inputs": "@concat(body('Get_username')[0]['Name'], '@', body('Get_username')[0]['UPNSuffix'])",
-                                    "runAfter": {
-                                        "Get_username": [
-                                            "Succeeded"
-                                        ]
-                                    },
-                                    "type": "Compose"
-                                },                                
-                                "Get_alertLink": {
+                                "Entities_-_Get_IPs": {
                                     "inputs": {
-                                        "from": "@triggerBody()?['ExtendedLinks']",
-                                        "where": "@contains(item()['Label'], 'alert')"
+                                        "body": "@triggerBody()?['Entities']",
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/entities/ip"
                                     },
                                     "runAfter": {
-                                        "Compose_UPN": [
-                                            "Succeeded"
+                                        "Extract_alertId": [
+                                            "Succeeded",
+                                            "Failed"
                                         ]
                                     },
-                                    "type": "Query"
+                                    "type": "ApiConnection"
                                 },
                                 "Extract_alertId": {
                                     "inputs": "@last(split(body('Get_alertLink')[0]['Href'], '/'))",
@@ -139,326 +210,67 @@
                                         ]
                                     },
                                     "type": "Compose"
+                                },
+                                "Get_alertLink": {
+                                    "inputs": {
+                                        "from": "@triggerBody()?['ExtendedLinks']",
+                                        "where": "@contains(item()['Label'], 'alert')"
+                                    },
+                                    "runAfter": {
+                                        "Set_userAccountId": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Query"
+                                },
+                                "Set_userAccountId": {
+                                    "inputs": {
+                                        "name": "userAccountId",
+                                        "value": "@{body('Entities_-_Get_Accounts')?['Accounts']?[0]?['AadUserId']}"
+                                    },
+                                    "runAfter": {
+                                        "Entities_-_Get_Accounts": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
                                 }
                             },
                             "runAfter": {
-                                "Initialize_entities": [
+                                "Initialize_ipsList": [
                                     "Succeeded"
                                 ]
                             },
                             "type": "Scope"
                         },
-                        "User": {
+                        "User_enrichment": {
                             "actions": {
-                                "Get_user_details": {
-                                    "runAfter": {},
-                                    "type": "Http",
+                                "Set_userEnrichment": {
                                     "inputs": {
-                                        "authentication": {
-                                            "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                            "type": "ActiveDirectoryOAuth"
-                                        },
-                                        "method": "GET",
-                                        "uri": "https://graph.microsoft.com/beta/users/@{outputs('Compose_UPN')}"
-                                    }
-                                },
-                                "Switch": {
+                                        "name": "userDetails",
+                                        "value": "@body('UserEnrichment')"
+                                    },
                                     "runAfter": {
-                                        "Get_user_details": [
-                                            "Failed",
+                                        "UserEnrichment": [
                                             "Succeeded"
                                         ]
                                     },
-                                    "cases": {
-                                        "Case_200_OK": {
-                                            "case": 200,
-                                            "actions": {
-                                                "Get_user_AAD_risk_status": {
-                                                    "runAfter": {
-                                                        "Parse_user_manager": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                                            "type": "ActiveDirectoryOAuth"
-                                                        },
-                                                        "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/riskyUsers/@{body('Parse_user_details')?['id']}/"
-                                                    }
-                                                },                                                
-                                                "Get_user_manager": {
-                                                    "runAfter": {
-                                                        "Parse_user_details": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "Http",
-                                                    "inputs": {
-                                                        "authentication": {
-                                                            "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
-                                                            "type": "ActiveDirectoryOAuth"
-                                                        },
-                                                        "method": "GET",
-                                                        "uri": "https://graph.microsoft.com/beta/users/@{body('Parse_user_details')?['userPrincipalName']}/manager"
-                                                    }
-                                                },
-                                                "Parse_user_details": {
-                                                    "runAfter": {},
-                                                    "type": "ParseJson",
-                                                    "inputs": {
-                                                        "content": "@body('Get_user_details')",
-                                                        "schema": {
-                                                            "properties": {
-                                                                "@@odata.context": {},
-                                                                "accountEnabled": {
-                                                                    "type": "boolean"
-                                                                },
-                                                                "ageGroup": {},
-                                                                "businessPhones": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "city": {},
-                                                                "companyName": {},
-                                                                "consentProvidedForMinor": {},
-                                                                "country": {},
-                                                                "createdDateTime": {},
-                                                                "creationType": {},
-                                                                "deletedDateTime": {},
-                                                                "department": {},
-                                                                "deviceKeys": {
-                                                                    "type": "array"
-                                                                },
-                                                                "displayName": {},
-                                                                "employeeId": {},
-                                                                "externalUserState": {},
-                                                                "externalUserStateChangeDateTime": {},
-                                                                "faxNumber": {},
-                                                                "givenName": {},
-                                                                "id": {},
-                                                                "identities": {
-                                                                    "items": {
-                                                                        "properties": {
-                                                                            "issuer": {},
-                                                                            "issuerAssignedId": {},
-                                                                            "signInType": {}
-                                                                        },
-                                                                        "required": [],
-                                                                        "type": "object"
-                                                                    },
-                                                                    "type": "array"
-                                                                },
-                                                                "imAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "isResourceAccount": {},
-                                                                "jobTitle": {},
-                                                                "legalAgeGroupClassification": {},
-                                                                "mail": {},
-                                                                "mailNickname": {},
-                                                                "mobilePhone": {},
-                                                                "officeLocation": {},
-                                                                "onPremisesDistinguishedName": {},
-                                                                "onPremisesDomainName": {},
-                                                                "onPremisesImmutableId": {},
-                                                                "onPremisesLastSyncDateTime": {},
-                                                                "onPremisesSamAccountName": {},
-                                                                "onPremisesSecurityIdentifier": {},
-                                                                "onPremisesSyncEnabled": {},
-                                                                "onPremisesUserPrincipalName": {},
-                                                                "otherMails": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "passwordPolicies": {},
-                                                                "passwordProfile": {},
-                                                                "postalCode": {},
-                                                                "preferredDataLocation": {},
-                                                                "preferredLanguage": {},
-                                                                "proxyAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "refreshTokensValidFromDateTime": {},
-                                                                "showInAddressList": {},
-                                                                "signInSessionsValidFromDateTime": {},
-                                                                "state": {},
-                                                                "streetAddress": {},
-                                                                "surname": {},
-                                                                "usageLocation": {},
-                                                                "userPrincipalName": {},
-                                                                "userType": {}
-                                                            },
-                                                            "type": "object"
-                                                        }
-                                                    }
-                                                },
-                                                "Parse_user_manager": {
-                                                    "runAfter": {
-                                                        "Get_user_manager": [
-                                                            "Succeeded",
-                                                            "Failed"
-                                                        ]
-                                                    },
-                                                    "type": "ParseJson",
-                                                    "inputs": {
-                                                        "content": "@body('Get_user_details')",
-                                                        "schema": {
-                                                            "properties": {
-                                                                "@@odata.context": {},
-                                                                "accountEnabled": {
-                                                                    "type": "boolean"
-                                                                },
-                                                                "ageGroup": {},
-                                                                "businessPhones": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "city": {},
-                                                                "companyName": {},
-                                                                "consentProvidedForMinor": {},
-                                                                "country": {},
-                                                                "createdDateTime": {},
-                                                                "creationType": {},
-                                                                "deletedDateTime": {},
-                                                                "department": {},
-                                                                "deviceKeys": {
-                                                                    "type": "array"
-                                                                },
-                                                                "displayName": {},
-                                                                "employeeId": {},
-                                                                "externalUserState": {},
-                                                                "externalUserStateChangeDateTime": {},
-                                                                "faxNumber": {},
-                                                                "givenName": {},
-                                                                "id": {},
-                                                                "identities": {
-                                                                    "items": {
-                                                                        "properties": {
-                                                                            "issuer": {},
-                                                                            "issuerAssignedId": {},
-                                                                            "signInType": {}
-                                                                        },
-                                                                        "required": [],
-                                                                        "type": "object"
-                                                                    },
-                                                                    "type": "array"
-                                                                },
-                                                                "imAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "isResourceAccount": {},
-                                                                "jobTitle": {},
-                                                                "legalAgeGroupClassification": {},
-                                                                "mail": {},
-                                                                "mailNickname": {},
-                                                                "mobilePhone": {},
-                                                                "officeLocation": {},
-                                                                "onPremisesDistinguishedName": {},
-                                                                "onPremisesDomainName": {},
-                                                                "onPremisesImmutableId": {},
-                                                                "onPremisesLastSyncDateTime": {},
-                                                                "onPremisesSamAccountName": {},
-                                                                "onPremisesSecurityIdentifier": {},
-                                                                "onPremisesSyncEnabled": {},
-                                                                "onPremisesUserPrincipalName": {},
-                                                                "otherMails": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "passwordPolicies": {},
-                                                                "passwordProfile": {},
-                                                                "postalCode": {},
-                                                                "preferredDataLocation": {},
-                                                                "preferredLanguage": {},
-                                                                "proxyAddresses": {
-                                                                    "items": {},
-                                                                    "type": "array"
-                                                                },
-                                                                "refreshTokensValidFromDateTime": {},
-                                                                "showInAddressList": {},
-                                                                "signInSessionsValidFromDateTime": {},
-                                                                "state": {},
-                                                                "streetAddress": {},
-                                                                "surname": {},
-                                                                "usageLocation": {},
-                                                                "userPrincipalName": {},
-                                                                "userType": {}
-                                                            },
-                                                            "type": "object"
-                                                        }
-                                                    }
-                                                },
-                                                "Parse_user_risk_status": {
-                                                    "runAfter": {
-                                                        "Get_user_AAD_risk_status": [
-                                                            "Succeeded"
-                                                        ]
-                                                    },
-                                                    "type": "ParseJson",
-                                                    "inputs": {
-                                                        "content": "@body('Get_user_AAD_risk_status')",
-                                                        "schema": {
-                                                            "properties": {
-                                                                "@@odata.context": {},
-                                                                "id": {},
-                                                                "isDeleted": {},
-                                                                "isGuest": {},
-                                                                "isProcessing": {},
-                                                                "riskDetail": {},
-                                                                "riskLastUpdatedDateTime": {},
-                                                                "riskLevel": {},
-                                                                "riskState": {},
-                                                                "userDisplayName": {},
-                                                                "userPrincipalName": {}
-                                                            },
-                                                            "type": "object"
-                                                        }
-                                                    }
-                                                }
+                                    "type": "SetVariable"
+                                },
+                                "UserEnrichment": {
+                                    "inputs": {
+                                        "body": {
+                                            "userPrincipalName": "@variables('userAccountId')"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "/subscriptions/eb82f6b8-8ada-41e6-9b15-66377e0af70f/resourceGroups/Soc/providers/Microsoft.Logic/workflows/UserEnrichment"
                                             }
                                         }
                                     },
-                                    "default": {
-                                        "actions": {
-                                            "Response_user_unknown": {
-                                                "runAfter": {},
-                                                "type": "Response",
-                                                "kind": "Http",
-                                                "inputs": {
-                                                    "body": "@body('Get_user_details')",
-                                                    "statusCode": "@outputs('Get_user_details')['statusCode']"
-                                                }
-                                            },
-                                            "Terminate": {
-                                                "runAfter": {
-                                                    "Response_user_unknown": [
-                                                        "Succeeded"
-                                                    ]
-                                                },
-                                                "type": "Terminate",
-                                                "inputs": {
-                                                    "runStatus": "Succeeded"
-                                                }
-                                            }
-                                        }
-                                    },
-                                    "expression": "@outputs('Get_user_details')['statusCode']",
-                                    "type": "Switch"
+                                    "runAfter": {},
+                                    "type": "Workflow"
                                 }
                             },
                             "runAfter": {
@@ -468,131 +280,225 @@
                             },
                             "type": "Scope"
                         },
-                        "Compose_message": {
+                        "IPs_enrichment": {
                             "actions": {
-                                "Message": {
-                                    "inputs": {                                        
-                                        "userPrincipalName": "@outputs('Compose_UPN')",
-                                        "userRiskLevel": "@{body('Parse_user_risk_status')?['riskLevel']}"
+                                "IPsEnrichment": {
+                                    "inputs": {
+                                        "body": {
+                                            "ipAddresses": "@variables('ipsList')",
+                                            "samAccountName": "@{if(empty(variables('userDetails')?['onPremisesSamAccountName']), split(variables('userDetails')?['userPrincipalName'], '@')?[0], variables('userDetails')?['onPremisesSamAccountName'])}",
+                                            "userPrincipalName": "@{variables('userDetails')?['userPrincipalName']}"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "/subscriptions/eb82f6b8-8ada-41e6-9b15-66377e0af70f/resourceGroups/Soc/providers/Microsoft.Logic/workflows/IPsEnrichment"
+                                            }
+                                        }
                                     },
                                     "runAfter": {},
-                                    "type": "Compose"
+                                    "type": "Workflow"
+                                },
+                                "Set_enrichedIPsList": {
+                                    "inputs": {
+                                        "name": "enrichedIPsList",
+                                        "value": "@body('IPsEnrichment')"
+                                    },
+                                    "runAfter": {
+                                        "IPsEnrichment": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
                                 }
                             },
                             "runAfter": {
-                                "User": [
+                                "User_enrichment": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Compose_comment": {
+                            "actions": {
+                                "IPs_table": {
+                                    "inputs": {
+                                        "columns": [
+                                            {
+                                                "header": "CorpIPs",
+                                                "value": "@item()?['corpIPs']"
+                                            },
+                                            {
+                                                "header": "CloudIPs",
+                                                "value": "@item()?['cloudIPs']"
+                                            },
+                                            {
+                                                "header": "RiskyIPs",
+                                                "value": "@item()?['riskyIPs']"
+                                            },
+                                            {
+                                                "header": "DevicesIPs",
+                                                "value": "@item()?['devicesIPs']"
+                                            },
+                                            {
+                                                "header": "OtherIPs",
+                                                "value": "@item()?['otherIPs']"
+                                            },
+                                            {
+                                                "header": "NotFoundIPs",
+                                                "value": "@item()?['notFound']"
+                                            }
+                                        ],
+                                        "format": "HTML",
+                                        "from": "@variables('enrichedIPsList')"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Table"
+                                },
+                                "MDATP_devices_table": {
+                                    "inputs": {
+                                        "format": "HTML",
+                                        "from": "@variables('enrichedIPsList')?[0]?['devices']"
+                                    },
+                                    "runAfter": {
+                                        "IPs_table": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Table"
+                                }
+                            },
+                            "runAfter": {
+                                "IPs_enrichment": [
                                     "Succeeded"
                                 ]
                             },
                             "type": "Scope"
                         },
-                        "Condition": {
+                        "Triage_logic": {
                             "actions": {
-                                "Resolve_Cloud_App_Security_alert": {
-                                    "runAfter": {},
-                                    "type": "Http",
-                                    "inputs": {
-                                        "body": {
-                                            "filters": {
-                                                "id": {
-                                                    "eq": [
-                                                        "@{outputs('Extract_alertId')}"
+                                "Condition": {
+                                    "actions": {
+                                        "Add_comment_to_incident_closed": {
+                                            "inputs": {
+                                                "body": {
+                                                    "Value": "Alert resolved using automation\n@{replace(body('IPs_table'), '&quot;', '\"')}\n\n@{replace(body('MDATP_devices_table'), '&quot;', '\"')}\n\n"
+                                                },
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "put",
+                                                "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
+                                            },
+                                            "runAfter": {
+                                                "Close_incident": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection"
+                                        },
+                                        "Close_incident": {
+                                            "inputs": {
+                                                "body": {
+                                                    "CloseReason": "FalsePositive"
+                                                },
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "put",
+                                                "path": "/Case/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}/Status/@{encodeURIComponent('Closed')}"
+                                            },
+                                            "runAfter": {
+                                                "Resolve_Cloud_App_Security_alert": [
+                                                    "Succeeded",
+                                                    "Failed"
+                                                ]
+                                            },
+                                            "type": "ApiConnection"
+                                        },
+                                        "Resolve_Cloud_App_Security_alert": {
+                                            "inputs": {
+                                                "body": {
+                                                    "comment": "Resolved using Logic App IP triage",
+                                                    "filters": {
+                                                        "id": {
+                                                            "eq": [
+                                                                "@{outputs('Extract_alertId')}"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "headers": {
+                                                    "Authorization": "token QhwZGlccGhceFxcBSlodAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNLH0kcTEwXTkweGhZLHB1OGBtOHU0ZHRYYGBhKTh9MFk0WFk5MFhgaFhtMHR0XSxlKTB0bGx1KGx4ZHh8fGx0Y"
+                                                },
+                                                "method": "POST",
+                                                "uri": "https://m365x358188.eu2.portal.cloudappsecurity.com/cas/api/v1/alerts/resolve/"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Http"
+                                        }
+                                    },
+                                    "description": "If IPs are not unknown or risky, and the user is not at high risk, close the alert",
+                                    "else": {
+                                        "actions": {
+                                            "Add_comment_to_incident_open": {
+                                                "inputs": {
+                                                    "body": {
+                                                        "Value": "Incident contains risky or unknown IPs\n\n@{replace(body('IPs_table'), '&quot;', '\"')}\n\n@{replace(body('MDATP_devices_table'), '&quot;', '\"')}\n"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "put",
+                                                    "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
+                                                },
+                                                "runAfter": {},
+                                                "type": "ApiConnection"
+                                            }
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "equals": [
+                                                    "@empty(variables('enrichedIPsList')?[0]?['otherIPs'])",
+                                                    "@true"
+                                                ]
+                                            },
+                                            {
+                                                "equals": [
+                                                    "@empty(variables('enrichedIPsList')?[0]?['riskyIPs'])",
+                                                    "@true"
+                                                ]
+                                            },
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@variables('userDetails')?['riskLevel']",
+                                                        "high"
                                                     ]
                                                 }
-                                            },
-                                            "comment": "Resolved using Microsoft Flow - user OOF is 'ON', and is not part of the 'Exec' group"
-                                        },
-                                        "headers": {
-                                            "Authorization": "[concat('token ',parameters('mcasAPI').apiToken)]"
-                                        },
-                                        "method": "POST",
-                                        "uri": "[concat(parameters('mcasAPI').tenantUrl, '/cas/api/v1/alerts/resolve/')]"
-                                    }
-                                    
-                                },
-                                "Change_incident_status": {
-                                    "inputs": {
-                                        "body": {
-                                            "CloseReason": "FalsePositive",
-                                            "CloseReasonText": "@{outputs('Message')}"
-                                        },
-                                        "host": {
-                                            "connection": {
-                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
                                             }
-                                        },
-                                        "method": "put",
-                                        "path": "/Case/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}/Status/@{encodeURIComponent('Closed')}"
-                                    },
-                                    "runAfter": {
-                                        "Resolve_Cloud_App_Security_alert": [
-                                            "Succeeded"
                                         ]
                                     },
-                                    "type": "ApiConnection"
-                                },
-                                "Add_comment_to_incident_closed": {
-                                    "inputs": {
-                                        "body": {
-                                            "Value": "Alert resolved using automation\n\n@{outputs('Message')}"
-                                        },
-                                        "host": {
-                                            "connection": {
-                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
-                                            }
-                                        },
-                                        "method": "put",
-                                        "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
-                                    },
-                                    "runAfter": {
-                                        "Change_incident_status": [
-                                            "Succeeded"
-                                        ]
-                                    },
-                                    "type": "ApiConnection"
+                                    "runAfter": {},
+                                    "type": "If"
                                 }
-                                
-                            },
-                            "else": {
-                                "actions": {
-                                    "Add_comment_to_incident_open": {
-                                    "inputs": {
-                                        "body": {
-                                            "Value": "Automated investigation details:\n\n@{outputs('Message')}"
-                                        },
-                                        "host": {
-                                            "connection": {
-                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
-                                            }
-                                        },
-                                        "method": "put",
-                                        "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
-                                    },
-                                    "runAfter": {
-                                    },
-                                    "type": "ApiConnection"
-                                }
-                                }
-                            },
-                            "expression": {
-                                "and": [
-                                    {
-                                        "equals": [
-                                            "@empty('')",
-                                            "@false"
-                                        ]
-                                    }
-                                ]
                             },
                             "runAfter": {
-                                "Compose_message": [
+                                "Compose_comment": [
                                     "Succeeded"
                                 ]
                             },
-                            "type": "If",
-                            "description": "If user OOF is turned on and the user is not part of the sensitive groups"
-                        }                        
-                        
+                            "type": "Scope"
+                        }
                     },
                     "outputs": {}
                 },
@@ -601,7 +507,7 @@
                         "value": {
                             "azuresentinel": {
                                 "connectionId": "[resourceId('Microsoft.Web/connections', parameters('azuresentinel_Connection_Name'))]",
-                                "connectionName": "[parameters('azuresentinel_Connection_Name')]" ,
+                                "connectionName": "[parameters('azuresentinel_Connection_Name')]",
                                 "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuresentinel')]"
                             }
                         }
@@ -609,10 +515,10 @@
                 }
             }
         }
-        
+
     ],
     "outputs": {
-        
+
         "logicAppUrl": {
             "type": "string",
             "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/When_a_response_to_an_Azure_Sentinel_alert_is_triggered'), '2016-06-01').value]"
