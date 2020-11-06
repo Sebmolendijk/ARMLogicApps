@@ -243,7 +243,8 @@
                                             },
                                             "runAfter": {
                                                 "Locations_table": [
-                                                    "Succeeded"
+                                                    "Succeeded",
+                                                    "Failed"
                                                 ]
                                             },
                                             "type": "Table"
@@ -277,7 +278,8 @@
                                             },
                                             "runAfter": {
                                                 "Admin_roles_table": [
-                                                    "Succeeded"
+                                                    "Succeeded",
+                                                    "Failed"
                                                 ]
                                             },
                                             "type": "Table"
@@ -311,7 +313,8 @@
                                             },
                                             "runAfter": {
                                                 "Manager_table": [
-                                                    "Succeeded"
+                                                    "Succeeded",
+                                                    "Failed"
                                                 ]
                                             },
                                             "type": "Table"
@@ -341,7 +344,8 @@
                                             },
                                             "runAfter": {
                                                 "Threatscore_History_table": [
-                                                    "Succeeded"
+                                                    "Succeeded",
+                                                    "Failed"
                                                 ]
                                             },
                                             "type": "Table"
