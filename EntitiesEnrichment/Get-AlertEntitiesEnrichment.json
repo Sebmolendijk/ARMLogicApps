@@ -151,11 +151,17 @@
                                 },
                                 "For_each_user": {
                                     "actions": {
+                                        "Compose_username": {
+                                            "description": "If AAD object ID is missing, building UPN",
+                                            "inputs": "@if(empty(items('For_each_user')?['AadUserId']), concat(items('For_each_user')?['Name'], '@', items('For_each_user')?['UPNSuffix']), items('For_each_user')?['AadUserId'])",
+                                            "runAfter": {},
+                                            "type": "Compose"
+                                        },
                                         "Call_UserEnrichment_LogicApp": {
                                             "description": "Calls the logic app in charge or enriching user details with AAD information",
                                             "inputs": {
                                                 "body": {
-                                                    "userPrincipalName": "@items('For_each_user')?['AadUserId']"
+                                                    "userPrincipalName": "@{outputs('Compose_username')}"
                                                 },
                                                 "host": {
                                                     "triggerName": "manual",
@@ -164,7 +170,11 @@
                                                     }
                                                 }
                                             },
-                                            "runAfter": {},
+                                            "runAfter": {
+                                                "Compose_username": [
+                                                    "Succeeded"
+                                                ]
+                                            },
                                             "type": "Workflow"
                                         },
                                         "MDATP_devices_table": {
