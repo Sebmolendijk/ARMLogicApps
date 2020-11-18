@@ -193,6 +193,22 @@
                                 ]
                             }
                         },
+                        "Initialize_signins": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "signins",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_ssprActivities": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
                         "User": {
                             "actions": {
                                 "Get_user_details": {
@@ -468,7 +484,137 @@
                                 }
                             },
                             "runAfter": {
-                                "Initialize_ssprActivities": [
+                                "Initialize_signins": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "User_signins": {
+                            "actions": {
+                                "Compose_filter": {
+                                    "description": "Get signings from the last 7 days",
+                                    "inputs": "(userPrincipalName eq '@{body('Get_user_details')?['userPrincipalName']}' and (createdDateTime ge @{addDays(startOfDay(utcNow()) , -7)}))",
+                                    "runAfter": {},
+                                    "type": "Compose"
+                                },
+                                "Get_user_signins": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('servicePrincipal').clientId]",
+                                            "secret": "[parameters('servicePrincipal').clientSecret]",
+                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "headers": {
+                                            "Content-Type": "application/json"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/beta/auditLogs/signIns?$filter=@{outputs('Compose_filter')}"
+                                    },
+                                    "runAfter": {
+                                        "Compose_filter": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "For_each_signin": {
+                                    "actions": {
+                                        "Get_applied_CA_policies": {
+                                            "inputs": {
+                                                "from": "@items('For_each_signin')?['appliedConditionalAccessPolicies']",
+                                                "where": "@equals(item()?['result'], 'success')"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Query"
+                                        },
+                                        "Compose_Signins": {
+                                            "inputs": {
+                                                "authenticationMethodsUsed": "@items('For_each_signin')?['authenticationMethodsUsed']",
+                                                "authenticationRequirement": "@items('For_each_signin')?['authenticationRequirement']",
+                                                "authenticationDetails": "@items('For_each_signin')?['authenticationDetails']",
+                                                "appDisplayName": "@items('For_each_signin')?['appDisplayName']",
+                                                "appId": "@items('For_each_signin')?['appId']",
+                                                "appliedConditionalAccessPolicies": "@body('Get_applied_CA_policies')",                                                
+                                                "ipAddress": "@items('For_each_signin')?['ipAddress']",
+                                                "clientAppUsed": "@items('For_each_signin')?['clientAppUsed']",
+                                                "conditionalAccessStatus": "@items('For_each_signin')?['conditionalAccessStatus']",
+                                                "deviceId": "@items('For_each_signin')?['deviceDetail']?['deviceId']",
+                                                "deviceName": "@items('For_each_signin')?['deviceDetail']?['displayName']",
+                                                "deviceIsCompliant": "@items('For_each_signin')?['deviceDetail']?['isCompliant']",
+                                                "deviceIsManaged": "@items('For_each_signin')?['deviceDetail']?['isManaged']",
+                                                "deviceTrustType": "@items('For_each_signin')?['deviceDetail']?['trustType']",
+                                                "isInteractive": "@items('For_each_signin')?['isInteractive']",
+                                                "location": "@concat(items('For_each_signin')?['location']?['countryOrRegion'], ', ', items('For_each_signin')?['location']?['state'], ', ', items('For_each_signin')?['location']?['city'])",
+                                                "mfaDetail": "@items('For_each_signin')?['mfaDetail']",
+                                                "riskDetail": "@items('For_each_signin')?['riskDetail']",
+                                                "riskLevelAggregated": "@items('For_each_signin')?['riskLevelAggregated']",
+                                                "riskLevelDuringSignIn": "@items('For_each_signin')?['riskLevelDuringSignIn']",
+                                                "riskState": "@items('For_each_signin')?['riskState']",
+                                                "riskEventTypes": "@items('For_each_signin')?['riskEventTypes']",
+                                                "riskEventTypes_v2": "@items('For_each_signin')?['riskEventTypes_v2']",
+                                                "resourceDisplayName": "@items('For_each_signin')?['resourceDisplayName']",
+                                                "resourceId": "@items('For_each_signin')?['resourceId']",
+                                                "statusAdditionalDetails": "@items('For_each_signin')?['status']?['additionalDetails']", 
+                                                "statusCode": "@items('For_each_signin')?['status']?['errorCode']",
+                                                "statusFailureReason": "@items('For_each_signin')?['status']?['failureReason']",
+                                                "userAgent": "@items('For_each_signin')?['userAgent']"
+
+                                            },
+                                            "runAfter": {
+                                                "Get_applied_CA_policies": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Compose"
+                                        },
+                                        "Append_to_signins": {
+                                            "inputs": {
+                                                "name": "signins",
+                                                "value": "@outputs('Compose_Signins')"
+                                            },
+                                            "runAfter": {
+                                                "Compose_Signins": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToArrayVariable"
+                                        }                                      
+                                    },
+                                    "foreach": "@body('Get_user_signins')?['value']",
+                                    "runAfter": {
+                                        "Get_user_signins": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Foreach"
+                                },
+                                "Dedup_signins": {
+                                    "inputs": "@union(variables('signins'), variables('signins'))",
+                                    "runAfter": {
+                                        "For_each_signin": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose"
+                                },
+                                "Set_signins": {
+                                    "inputs": {
+                                        "name": "signins",
+                                        "value": "@outputs('Dedup_signins')"
+                                    },
+                                    "runAfter": {
+                                        "Dedup_signins": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
+                                }                             
+                            },
+                            "runAfter": {
+                                "User": [
                                     "Succeeded"
                                 ]
                             },
@@ -1437,6 +1583,7 @@
                                         "riskState": "@body('Get_user_AAD_risk_status')?['riskState']",
                                         "riskDetail": "@body('Get_user_AAD_risk_status')?['riskDetail']",
                                         "riskLastUpdatedDateTime": "@body('Get_user_AAD_risk_status')?['riskLastUpdatedDateTime']",
+                                        "signinsLast7days": "@variables('signins')",
                                         "ssprActivities": "@variables('ssprActivities')",
                                         "state": "@body('Get_user_details')?['state']",
                                         "streetAddress": "@body('Get_user_details')?['streetAddress']",
@@ -1460,6 +1607,10 @@
                                     "Succeeded"
                                 ],
                                 "Mcas_profile": [
+                                    "Succeeded",
+                                    "Failed"
+                                ],
+                                "User_signins": [
                                     "Succeeded",
                                     "Failed"
                                 ]
