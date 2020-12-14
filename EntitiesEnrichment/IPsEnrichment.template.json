@@ -16,11 +16,20 @@
                 "description": "Location for all resources."
             }
         },
-        "servicePrincipal": {
-            "type": "secureObject"
+        "servicePrincipal-tenantId": {
+            "type": "string"
         },
-        "mcasAPI": {
-            "type": "secureobject"
+        "servicePrincipal-clientId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientSecret": {
+            "type": "securestring"
+        },
+        "mcas-apiToken": {
+            "type": "securestring"
+        },
+        "mcas-tenantUrl": {
+            "type": "string"
         }
     },
     "variables": {},
@@ -39,13 +48,25 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
-                        "servicePrincipal": {
-                            "type": "secureobject",
-                            "defaultValue": "[parameters('servicePrincipal')]"
+                        "servicePrincipal-tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-tenantId')]"
                         },
-                        "mcasAPI": {
-                            "defaultValue": "[parameters('mcasAPI')]",
-                            "type": "secureobject"
+                        "servicePrincipal-clientSecret": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('servicePrincipal-clientSecret')]"
+                        },
+                        "servicePrincipal-clientId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-clientId')]"
+                        },
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
+                        },
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
                         }
                     },
                     "triggers": {
@@ -205,9 +226,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://api.securitycenter.windows.com/",
-                                            "clientId": "2c51cdd9-691e-438e-a136-81d806485b36",
-                                            "secret": "0ly7v+-]v-UHboj4D1g:s2+6bZ:cX.p.",
-                                            "tenant": "4b2462a4-bbee-495a-a0e1-f23ae524cc9c",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "body": {
@@ -319,11 +340,11 @@
                                                     "sortField": "date"
                                                 },
                                                 "headers": {
-                                                    "Authorization": "token XEpMTFdfQUZBRU4BWlwdAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNOSxtKGxYaS0wXSRkXFx4fGRtOSUsZS0weG0wdGBYWFhcfFx0eSUsXHh5JTE1OHRdJGxkbGEocHkkWTBscS0wX",
+                                                    "Authorization": "[concat('token ',parameters('mcas-apiToken'))]",
                                                     "Content-Type": "application/json"
                                                 },
                                                 "method": "POST",
-                                                "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/activities/"
+                                                "uri": "@{parameters('mcas-tenantUrl')}/cas/api/v1/activities/"
                                             },
                                             "runAfter": {},
                                             "type": "Http"

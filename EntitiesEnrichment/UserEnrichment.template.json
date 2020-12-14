@@ -16,11 +16,20 @@
                 "description": "Location for all resources."
             }
         },
-        "servicePrincipal": {
-            "type": "secureObject"
+        "servicePrincipal-tenantId": {
+            "type": "string"
         },
-        "mcasAPI": {
-            "type": "secureobject"
+        "servicePrincipal-clientId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientSecret": {
+            "type": "securestring"
+        },
+        "mcas-apiToken": {
+            "type": "securestring"
+        },
+        "mcas-tenantUrl": {
+            "type": "string"
         }
     },
     "variables": {},
@@ -39,13 +48,25 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
-                        "servicePrincipal": {
-                            "type": "secureobject",
-                            "defaultValue": "[parameters('servicePrincipal')]"
+                        "servicePrincipal-tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-tenantId')]"
                         },
-                        "mcasAPI": {
-                            "defaultValue": "[parameters('mcasAPI')]",
-                            "type": "secureobject"
+                        "servicePrincipal-clientSecret": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('servicePrincipal-clientSecret')]"
+                        },
+                        "servicePrincipal-clientId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-clientId')]"
+                        },
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
+                        },
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
                         }
                     },
                     "triggers": {
@@ -217,9 +238,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
@@ -339,9 +360,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -359,9 +380,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -433,9 +454,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -502,9 +523,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "headers": {
@@ -628,9 +649,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
@@ -769,9 +790,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://api.securitycenter.windows.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
 
@@ -802,9 +823,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "body": "@outputs('Groups')",
@@ -852,9 +873,9 @@
                                             "inputs": {
                                                 "authentication": {
                                                     "audience": "https://graph.microsoft.com/",
-                                                    "clientId": "[parameters('servicePrincipal').clientId]",
-                                                    "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                    "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                    "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                    "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                    "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                     "type": "ActiveDirectoryOAuth"
                                                 },
                                                 "method": "GET",
@@ -906,9 +927,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "headers": {
@@ -1050,9 +1071,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -1142,9 +1163,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "body": {
@@ -1163,9 +1184,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
@@ -1333,9 +1354,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
@@ -1417,11 +1438,11 @@
                                     "type": "Http",
                                     "inputs": {
                                         "headers": {
-                                            "Authorization": "[concat('token ',parameters('mcasAPI').apiToken)]",
+                                            "Authorization": "[concat('token ',parameters('mcas-apiToken'))]",
                                             "Content-Type": "application/json"
                                         },
                                         "method": "GET",
-                                        "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/activities_locations/by_user/?username=@{variables('userMcasId')}/"
+                                        "uri": "@{parameters('mcas-tenantUrl')}/cas/api/v1/activities_locations/by_user/?username=@{variables('userMcasId')}/"
                                     }
 
                                 },
@@ -1496,11 +1517,11 @@
                                     "type": "Http",
                                     "inputs": {
                                         "headers": {
-                                            "Authorization": "[concat('token ',parameters('mcasAPI').apiToken)]",
+                                            "Authorization": "[concat('token ',parameters('mcas-apiToken'))]",
                                             "Content-Type": "application/json"
                                         },
                                         "method": "GET",
-                                        "uri": "@{parameters('mcasAPI').tenantUrl}/cas/api/v1/entities/@{variables('userMcasId')}/"
+                                        "uri": "@{parameters('mcas-tenantUrl')}/cas/api/v1/entities/@{variables('userMcasId')}/"
                                     }
 
                                 },
