@@ -37,10 +37,9 @@ This playbook uses an API token to close the alert in MCAS, and an AAD service p
 You can use the **Deploy.ps1** script, after updating the required parameters in the provided **parameters.json** file, or use the buttons below.
 
 <br>
-
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FImpossibleTravel%2Fazuredeploy.json" target="_blank">
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FSebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FImpossibleTravel%2Fazuredeploy.json" target="_blank">
     <img src="https://aka.ms/deploytoazurebutton"/>
 </a>
-<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%Sebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FImpossibleTravel%2Fazuredeploy.json" target="_blank">
+<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FSebmolendijk%2FARMLogicApps%2Fmaster%2FMcasAlertsInvestigations%2FImpossibleTravel%2Fazuredeploy.json" target="_blank">
 <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png"/>
 </a>
