@@ -37,7 +37,7 @@
             }
         },
         "IPsEnrichmentLogicApp": {
-            "defaultValue": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Logic/workflows/UserEnrichment')]",
+            "defaultValue": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Logic/workflows/IPsEnrichment')]",
             "type": "string",
             "metadata": {
                 "description": "User enrichment Logic App path, like subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Logic/workflows/{workflowName}"
