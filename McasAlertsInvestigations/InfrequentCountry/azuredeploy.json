@@ -9,8 +9,20 @@
                 "description": "Name of the logic app."
             }
         },
-        "servicePrincipal": {
-            "type": "secureObject"
+        "servicePrincipal-tenantId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientSecret": {
+            "type": "securestring"
+        },
+        "mcas-apiToken": {
+            "type": "securestring"
+        },
+        "mcas-tenantUrl": {
+            "type": "string"
         },
         "location": {
             "defaultValue": "[resourceGroup().location]",
@@ -18,9 +30,6 @@
             "metadata": {
                 "description": "Location of the logic app."
             }
-        },
-        "mcasAPI": {
-            "type": "secureobject"
         },
         "azuresentinel_Connection_Name": {
             "defaultValue": "azuresentinel",
@@ -57,13 +66,25 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
-                        "servicePrincipal": {
-                            "type": "secureobject",
-                            "defaultValue": "[parameters('servicePrincipal')]"
+                        "servicePrincipal-tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-tenantId')]"
                         },
-                        "mcasAPI": {
-                            "defaultValue": "[parameters('mcasAPI')]",
-                            "type": "secureobject"
+                        "servicePrincipal-clientSecret": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('servicePrincipal-clientSecret')]"
+                        },
+                        "servicePrincipal-clientId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-clientId')]"
+                        },
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
+                        },
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
                         },
                         "$connections": {
                             "defaultValue": {},
@@ -156,9 +177,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "method": "GET",
@@ -186,9 +207,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -205,9 +226,9 @@
                                                     "inputs": {
                                                         "authentication": {
                                                             "audience": "https://graph.microsoft.com/",
-                                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                                             "type": "ActiveDirectoryOAuth"
                                                         },
                                                         "method": "GET",
@@ -478,9 +499,9 @@
                             "inputs": {
                                 "authentication": {
                                     "audience": "https://graph.microsoft.com/",
-                                    "clientId": "[parameters('servicePrincipal').clientId]",
-                                    "secret": "[parameters('servicePrincipal').clientSecret]",
-                                    "tenant": "[parameters('servicePrincipal').tenantId]",
+                                    "clientId": "[parameters('servicePrincipal-clientId')]",
+                                    "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                    "tenant": "[parameters('servicePrincipal-tenantId')]",
                                     "type": "ActiveDirectoryOAuth"
                                 },
                                 "body": {
@@ -516,9 +537,9 @@
                                     "inputs": {
                                         "authentication": {
                                             "audience": "https://graph.microsoft.com/",
-                                            "clientId": "[parameters('servicePrincipal').clientId]",
-                                            "secret": "[parameters('servicePrincipal').clientSecret]",
-                                            "tenant": "[parameters('servicePrincipal').tenantId]",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
                                             "type": "ActiveDirectoryOAuth"
                                         },
                                         "body": "@outputs('Groups')",
@@ -597,10 +618,10 @@
                                             "comment": "Resolved using Microsoft Flow - user OOF is 'ON', and is not part of the 'Exec' group"
                                         },
                                         "headers": {
-                                            "Authorization": "[concat('token ',parameters('mcasAPI').apiToken)]"
+                                            "Authorization": "[concat('token ',parameters('mcas-apiToken'))]"
                                         },
                                         "method": "POST",
-                                        "uri": "[concat(parameters('mcasAPI').tenantUrl, '/cas/api/v1/alerts/resolve/')]"
+                                        "uri": "[concat(parameters('mcas-tenantUrl'), '/cas/api/v1/alerts/resolve/')]"
                                     }
                                     
                                 },
