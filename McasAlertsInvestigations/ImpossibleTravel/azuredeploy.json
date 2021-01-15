@@ -9,9 +9,6 @@
                 "description": "Name of the logic app."
             }
         },
-        "servicePrincipal": {
-            "type": "secureObject"
-        },
         "location": {
             "defaultValue": "[resourceGroup().location]",
             "type": "String",
@@ -19,14 +16,31 @@
                 "description": "Location of the logic app."
             }
         },
-        "mcasAPI": {
-            "type": "secureobject"
+        "mcas-apiToken": {
+            "type": "securestring"
+        },
+        "mcas-tenantUrl": {
+            "type": "string"
         },
         "azuresentinel_Connection_Name": {
             "defaultValue": "azuresentinel",
             "type": "String",
             "metadata": {
                 "description": "Azure Sentinel connection"
+            }
+        },
+        "UserEnrichmentLogicApp": {
+            "defaultValue": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Logic/workflows/UserEnrichment')]",
+            "type": "string",
+            "metadata": {
+                "description": "User enrichment Logic App path, like subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Logic/workflows/{workflowName}"
+            }
+        },
+        "IPsEnrichmentLogicApp": {
+            "defaultValue": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Logic/workflows/UserEnrichment')]",
+            "type": "string",
+            "metadata": {
+                "description": "User enrichment Logic App path, like subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Logic/workflows/{workflowName}"
             }
         }
     },
@@ -57,13 +71,21 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
-                        "servicePrincipal": {
-                            "type": "secureobject",
-                            "defaultValue": "[parameters('servicePrincipal')]"
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
                         },
-                        "mcasAPI": {
-                            "defaultValue": "[parameters('mcasAPI')]",
-                            "type": "secureobject"
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
+                        },
+                        "UserEnrichmentLogicApp": {
+                            "defaultValue": "[parameters('UserEnrichmentLogicApp')]",
+                            "type": "string"
+                        },
+                        "IPsEnrichmentLogicApp": {
+                            "defaultValue": "[parameters('IPsEnrichmentLogicApp')]",
+                            "type": "string"
                         },
                         "$connections": {
                             "defaultValue": {},
@@ -265,7 +287,7 @@
                                         "host": {
                                             "triggerName": "manual",
                                             "workflow": {
-                                                "id": "/subscriptions/eb82f6b8-8ada-41e6-9b15-66377e0af70f/resourceGroups/Soc/providers/Microsoft.Logic/workflows/UserEnrichment"
+                                                "id": "[parameters('UserEnrichmentLogicApp')]"
                                             }
                                         }
                                     },
@@ -292,7 +314,7 @@
                                         "host": {
                                             "triggerName": "manual",
                                             "workflow": {
-                                                "id": "/subscriptions/eb82f6b8-8ada-41e6-9b15-66377e0af70f/resourceGroups/Soc/providers/Microsoft.Logic/workflows/IPsEnrichment"
+                                                "id": "[parameters('IPsEnrichmentLogicApp')]"
                                             }
                                         }
                                     },
@@ -434,10 +456,10 @@
                                                     }
                                                 },
                                                 "headers": {
-                                                    "Authorization": "token QhwZGlccGhceFxcBSlodAV9AXVtOQwFMQ0BaS05fX1xKTFpdRltWAUxAQlNLH0kcTEwXTkweGhZLHB1OGBtOHU0ZHRYYGBhKTh9MFk0WFk5MFhgaFhtMHR0XSxlKTB0bGx1KGx4ZHh8fGx0Y"
+                                                    "Authorization": "[concat('token ',parameters('mcas-apiToken'))]"
                                                 },
                                                 "method": "POST",
-                                                "uri": "https://m365x358188.eu2.portal.cloudappsecurity.com/cas/api/v1/alerts/resolve/"
+                                                "uri": "[concat(parameters('mcas-tenantUrl'), '/cas/api/v1/alerts/resolve/')]"
                                             },
                                             "runAfter": {},
                                             "type": "Http"
