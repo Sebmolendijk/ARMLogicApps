@@ -354,8 +354,7 @@
                                             },
                                             "runAfter": {
                                                 "Threatscore_History_table": [
-                                                    "Succeeded",
-                                                    "Failed"
+                                                    "Succeeded"
                                                 ]
                                             },
                                             "type": "Table"
