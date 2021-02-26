@@ -1,0 +1,731 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.1",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "ReportedEmailInvestigation",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the logic app."
+            }
+        },
+        "servicePrincipal-tenantId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientSecret": {
+            "type": "securestring"
+        },
+        "workspaceUri": {
+            "defaultValue": "https://management.azure.com/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers/Microsoft.OperationalInsights/workspaces/{workspace_name}",
+            "type": "string"
+        },
+        "location": {
+            "defaultValue": "[resourceGroup().location]",
+            "type": "String",
+            "metadata": {
+                "description": "Location of the logic app."
+            }
+        },
+        "azuresentinel_Connection_Name": {
+            "defaultValue": "azuresentinel",
+            "type": "String",
+            "metadata": {
+                "description": "Azure Sentinel connection"
+            }
+        },
+        "office365_Connection_Name": {
+            "defaultValue": "office365",
+            "type": "String",
+            "metadata": {
+                "description": "Office365 Sentinel connection"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('azuresentinel_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuresentinel')]"
+                },
+                "displayName": "[parameters('azuresentinel_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('office365_Connection_Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]"
+                },
+                "displayName": "[parameters('office365_Connection_Name')]"
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[parameters('azuresentinel_Connection_Name')]"
+            ],
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "servicePrincipal-tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-tenantId')]"
+                        },
+                        "servicePrincipal-clientSecret": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('servicePrincipal-clientSecret')]"
+                        },
+                        "servicePrincipal-clientId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-clientId')]"
+                        },
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
+                        },
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_new_email_arrives": {
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/Mail/OnNewEmail",
+                                "queries": {
+                                    "fetchOnlyWithAttachment": true,
+                                    "folderPath": "Inbox",
+                                    "importance": "Normal"
+                                }
+                            },
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 3
+                            },
+                            "splitOn": "@triggerBody()?['value']",
+                            "type": "ApiConnection"
+                        }
+                    },
+                    "actions": {
+                        "Initialize_body": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "body",
+                                        "type": "string",
+                                        "value": "@triggerBody()?['Body']"
+                                    }
+                                ]
+                            },
+                            "runAfter": {},
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_messageID": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "messageId",
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_body": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_messageNetworkId": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "messageNetworkId",
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_timeToSearch": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_timeToSearch": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "timeToSearch",
+                                        "type": "string",
+                                        "value": "30d"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_messageID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Compose_Sentinel_incidentId": {
+                            "inputs": "@guid()",
+                            "runAfter": {
+                                "Initialize_messageNetworkId": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose"
+                        },
+                        "Condition": {
+                            "actions": {
+                                "Extract_messageId": {
+                                    "inputs": "@outputs('Extract_text')",
+                                    "runAfter": {
+                                        "Extract_text": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose"
+                                },
+                                "Extract_text": {
+                                    "inputs": "@{split(split(triggerBody()?['Body'], 'Message-ID: ')?[1], '>')?[0]}>",
+                                    "runAfter": {},
+                                    "type": "Compose"
+                                },
+                                "Set_messageId": {
+                                    "inputs": {
+                                        "name": "messageId",
+                                        "value": "@{outputs('Extract_messageId')}"
+                                    },
+                                    "runAfter": {
+                                        "Extract_messageId": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
+                                }
+                            },
+                            "else": {
+                                "actions": {
+                                    "Terminate": {
+                                        "inputs": {
+                                            "runStatus": "Succeeded"
+                                        },
+                                        "runAfter": {},
+                                        "type": "Terminate"
+                                    }
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "contains": [
+                                            "@variables('body')",
+                                            "# Questionable URLs detected in message:"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Compose_Sentinel_incidentId": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Sentinel_incident": {
+                            "actions": {
+                                "Add_incident_comment": {
+                                    "inputs": {
+                                        "body": {
+                                            "incidentArmId": "@{body('Create_Sentinel_incident')?['id']}",
+                                            "message": "<p>User reported malicious email.<br>\nStarting investigation on message: @{variables('messageId')}</p>"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Incidents/Comment"
+                                    },
+                                    "runAfter": {
+                                        "Create_Sentinel_incident": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Create_Sentinel_incident": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://management.azure.com",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "additionalData": {
+                                                    "alertProductNames": [
+                                                        "Azure Sentinel"
+                                                    ],
+                                                    "alertsCount": 1,
+                                                    "bookmarksCount": 0,
+                                                    "tactics": [
+                                                        "InitialAccess"
+                                                    ]
+                                                },
+                                                "description": "User reported a malicious email. Incident created by SOC automation",
+                                                "owner": {
+                                                    "email": null
+                                                },
+                                                "severity": "Medium",
+                                                "status": "New",
+                                                "title": "User reported malicious email"
+                                            }
+                                        },
+                                        "method": "PUT",
+                                        "uri": "[concat(parameters('workspaceUri'), '/providers/Microsoft.SecurityInsights/Incidents/','@{outputs(''Compose_Sentinel_incidentId'')}', '?api-version=2020-01-01')]"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Http"
+                                }
+                            },
+                            "runAfter": {
+                                "Condition": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Collect_email_evidences": {
+                            "actions": {
+                                "Get_email_URL_details": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://api.security.microsoft.com",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "Query": "let timeToSearch = ago(@{variables('timeToSearch')}); let messageId = '@{variables('messageNetworkId')}'; EmailUrlInfo | where NetworkMessageId == messageId and Timestamp > timeToSearch"
+                                        },
+                                        "headers": {
+                                            "Content-Type": "application/json"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://api.security.microsoft.com/api/advancedhunting/run"
+                                    },
+                                    "runAfter": {
+                                        "Set_messageNetworkId": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "Get_email_attachment_details": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://api.security.microsoft.com",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "Query": "let timeToSearch = ago(@{variables('timeToSearch')}); let messageId = '@{variables('messageNetworkId')}'; EmailAttachmentInfo | where NetworkMessageId == messageId and Timestamp > timeToSearch"
+                                        },
+                                        "headers": {
+                                            "Content-Type": "application/json"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://api.security.microsoft.com/api/advancedhunting/run"
+                                    },
+                                    "runAfter": {
+                                        "Get_email_URL_details": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "Get_email_events": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://api.security.microsoft.com",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "Query": "let timeToSearch = ago(@{variables('timeToSearch')}); let messageId = '@{variables('messageId')}'; EmailEvents | where InternetMessageId == messageId and Timestamp > timeToSearch"
+                                        },
+                                        "headers": {
+                                            "Content-Type": "application/json"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://api.security.microsoft.com/api/advancedhunting/run"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Http"
+                                },
+                                "Set_messageNetworkId": {
+                                    "inputs": {
+                                        "name": "messageNetworkId",
+                                        "value": "@{body('Get_email_events')?['Results']?[0]?['NetworkMessageId']}"
+                                    },
+                                    "runAfter": {
+                                        "Get_email_events": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
+                                }
+                            },
+                            "runAfter": {
+                                "Sentinel_incident": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Add_incident_comments": {
+                            "actions": {
+                                "Add_events_comment": {
+                                    "inputs": {
+                                        "body": {
+                                            "incidentArmId": "@{body('Create_Sentinel_incident')?['id']}",
+                                            "message": "<p>@{body('Create_events_table')}</p>"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Incidents/Comment"
+                                    },
+                                    "runAfter": {
+                                        "Create_events_table": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Add_urls_comment": {
+                                    "inputs": {
+                                        "body": {
+                                            "incidentArmId": "@{body('Create_Sentinel_incident')?['id']}",
+                                            "message": "<p>@{body('Create_urls_table')}</p>"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Incidents/Comment"
+                                    },
+                                    "runAfter": {
+                                        "Create_urls_table": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Create_events_table": {
+                                    "inputs": {
+                                        "columns": [
+                                            {
+                                                "header": "Timestamp",
+                                                "value": "@item()?['Timestamp']"
+                                            },
+                                            {
+                                                "header": "Subject",
+                                                "value": "@item()?['Subject']"
+                                            },
+                                            {
+                                                "header": "Sender",
+                                                "value": "@item()?['SenderFromAddress']"
+                                            },
+                                            {
+                                                "header": "Recipient",
+                                                "value": "@item()?['RecipientEmailAddress']"
+                                            },
+                                            {
+                                                "header": "SenderIPv4",
+                                                "value": "@item()?['SenderIPv4']"
+                                            },
+                                            {
+                                                "header": "SenderIPv6",
+                                                "value": "@item()?['SenderIPv6']"
+                                            },
+                                            {
+                                                "header": "DeliveryAction",
+                                                "value": "@item()?['DeliveryAction']"
+                                            },
+                                            {
+                                                "header": "DeliveryLocation",
+                                                "value": "@item()?['DeliveryLocation']"
+                                            },
+                                            {
+                                                "header": "PhishFilterVerdict",
+                                                "value": "@item()?['PhishFilterVerdict']"
+                                            },
+                                            {
+                                                "header": "MalwareFilterVerdict",
+                                                "value": "@item()?['MalwareFilterVerdict']"
+                                            },
+                                            {
+                                                "header": "ThreatTypes",
+                                                "value": "@item()?['ThreatTypes']"
+                                            },
+                                            {
+                                                "header": "ThreatNames",
+                                                "value": "@item()?['ThreatNames']"
+                                            },
+                                            {
+                                                "header": "UrlCount",
+                                                "value": "@item()?['UrlCount']"
+                                            },
+                                            {
+                                                "header": "AttachmentCount",
+                                                "value": "@item()?['AttachmentCount']"
+                                            }
+                                        ],
+                                        "format": "HTML",
+                                        "from": "@body('Get_email_events')?['Results']"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Table"
+                                },
+                                "Create_files_table": {
+                                    "inputs": {
+                                        "columns": [
+                                            {
+                                                "header": "FileName",
+                                                "value": "@item()?['FileName']"
+                                            },
+                                            {
+                                                "header": "SHA256",
+                                                "value": "@item()?['SHA256']"
+                                            },
+                                            {
+                                                "header": "MalwareFilterVerdict",
+                                                "value": "@item()?['MalwareFilterVerdict']"
+                                            },
+                                            {
+                                                "header": "ThreatTypes",
+                                                "value": "@item()?['ThreatTypes']"
+                                            },
+                                            {
+                                                "header": "ThreatNames",
+                                                "value": "@item()?['ThreatNames']"
+                                            }
+                                        ],
+                                        "format": "HTML",
+                                        "from": "@body('Get_email_attachment_details')?['Results']"
+                                    },
+                                    "runAfter": {
+                                        "Add_urls_comment": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Table"
+                                },
+                                "Create_urls_table": {
+                                    "inputs": {
+                                        "columns": [
+                                            {
+                                                "header": "UrlDomain",
+                                                "value": "@item()?['UrlDomain']"
+                                            },
+                                            {
+                                                "header": "Url",
+                                                "value": "@item()?['Url']"
+                                            }
+                                        ],
+                                        "format": "HTML",
+                                        "from": "@body('Get_email_URL_details')?['Results']"
+                                    },
+                                    "runAfter": {
+                                        "Add_events_comment": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Table"
+                                }
+                            },
+                            "runAfter": {
+                                "Collect_email_evidences": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "VirusTotal_lookups": {
+                            "actions": {
+                                "Add_Ip_scan_report": {
+                                    "inputs": {
+                                        "body": {
+                                            "incidentArmId": "body('Create_Sentinel_incident')?['id']",
+                                            "message": "<p>IP address report:<br>\n<br>\n@{body('Ip_scan_report_V3')?['data']?['attributes']?['reputation']}@{body('Ip_scan_report_V3')?['data']?['attributes']?['last_modification_date']}@{body('Ip_scan_report_V3')?['data']?['attributes']?['last_analysis_stats']?['suspicious']}</p>"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Incidents/Comment"
+                                    },
+                                    "runAfter": {
+                                        "Ip_scan_report_V3": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Add_comment_to_incident_(V3)": {
+                                    "inputs": {
+                                        "body": {
+                                            "incidentArmId": "@{body('Create_Sentinel_incident')?['id']}",
+                                            "message": "<p>URL report:<br>\n<br>\n@{body('Analyse_an_URL')?['data']}</p>"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Incidents/Comment"
+                                    },
+                                    "runAfter": {
+                                        "Analyse_an_URL": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Analyse_an_URL": {
+                                    "inputs": {
+                                        "body": {
+                                            "$content-type": "multipart/form-data",
+                                            "$multipart": [
+                                                {
+                                                    "body": "@{body('Get_email_URL_details')?['Results']?[0]?['Url']}",
+                                                    "headers": {
+                                                        "Content-Disposition": "form-data; name=\"url\""
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['virustotal']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/api/v3/urls"
+                                    },
+                                    "runAfter": {},
+                                    "type": "ApiConnection"
+                                },
+                                "Ip_scan_report_V3": {
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['virustotal']['connectionId']"
+                                            }
+                                        },
+                                        "method": "get",
+                                        "path": "/api/v3/ip_addresses/@{encodeURIComponent(body('Get_email_events')?['Results']?[0]?['SenderIPv4'])}"
+                                    },
+                                    "runAfter": {
+                                        "Add_comment_to_incident_(V3)": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                }
+                            },
+                            "runAfter": {
+                                "Add_incident_comments": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Get_AIR_report": {
+                            "actions": {},
+                            "runAfter": {
+                                "VirusTotal_lookups": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        }
+                        
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azuresentinel": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('azuresentinel_Connection_Name'))]",
+                                "connectionName": "[parameters('azuresentinel_Connection_Name')]" ,
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'azuresentinel')]"
+                            },
+                            "office365": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365_Connection_Name'))]",
+                                "connectionName": "[parameters('office365_Connection_Name')]",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', 'office365')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+    ],
+    "outputs": {
+        
+        "logicAppUrl": {
+            "type": "string",
+            "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/When_a_response_to_an_Azure_Sentinel_alert_is_triggered'), '2016-06-01').value]"
+        }
+    }
+}
