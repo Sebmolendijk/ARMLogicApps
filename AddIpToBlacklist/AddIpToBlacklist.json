@@ -1,0 +1,499 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "AddIpToBlacklist",
+            "type": "string",
+            "metadata": {
+                "description": "The name of the logic app to create."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        },
+        "servicePrincipal-tenantId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientId": {
+            "type": "string"
+        },
+        "servicePrincipal-clientSecret": {
+            "type": "securestring"
+        },
+        "mcas-apiToken": {
+            "type": "securestring"
+        },
+        "mcas-tenantUrl": {
+            "type": "string"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Owner": "Automation"
+            },
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "servicePrincipal-tenantId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-tenantId')]"
+                        },
+                        "servicePrincipal-clientSecret": {
+                            "type": "securestring",
+                            "defaultValue": "[parameters('servicePrincipal-clientSecret')]"
+                        },
+                        "servicePrincipal-clientId": {
+                            "type": "string",
+                            "defaultValue": "[parameters('servicePrincipal-clientId')]"
+                        },
+                        "mcas-apiToken": {
+                            "defaultValue": "[parameters('mcas-apiToken')]",
+                            "type": "securestring"
+                        },
+                        "mcas-tenantUrl": {
+                            "defaultValue": "[parameters('mcas-tenantUrl')]",
+                            "type": "string"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "ipAddress": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "kind": "Http",
+                            "type": "Request"
+                        }
+                    },
+                    "actions": {
+                        "Initialize_blacklist_name": {
+                            "description": "Specify the AAD blacklist named location",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "blacklist",
+                                        "type": "string",
+                                        "value": "Blacklist"
+                                    }
+                                ]
+                            },
+                            "runAfter": {},
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_ipRanges": {
+                            "description": "Contains existing IP ranges",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "ipRanges",
+                                        "type": "array"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_blacklist_name": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_newIpAddress": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "newIpAddress",
+                                        "type": "object"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_ipRanges": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_requestBodyMcas": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "requestBodyMcas",
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_requestBodySentinel": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Initialize_requestBodySentinel": {
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "requestBodySentinel",
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "runAfter": {
+                                "Initialize_newIpAddress": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable"
+                        },
+                        "Azure_AD_named_locations": {
+                            "actions": {
+                                "Add_ip_to_AAD_blacklist": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": {
+                                            "@@odata.type": "#microsoft.graph.ipNamedLocation",
+                                            "ipRanges": "@variables('ipRanges')",
+                                            "isTrusted": false
+                                        },
+                                        "headers": {
+                                            "content-type": "application/json"
+                                        },
+                                        "method": "PATCH",
+                                        "uri": "https://graph.microsoft.com/v1.0/identity/conditionalAccess/namedLocations/@{body('Get_blacklist')?['value']?[0]?['id']}"
+                                    },
+                                    "runAfter": {
+                                        "Append_to_ipRanges": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "Append_to_ipRanges": {
+                                    "inputs": {
+                                        "name": "ipRanges",
+                                        "value": "@variables('newIpAddress')"
+                                    },
+                                    "runAfter": {
+                                        "If_single_IP_AAD": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "AppendToArrayVariable"
+                                },
+                                "Get_blacklist": {
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "method": "GET",
+                                        "uri": "https://graph.microsoft.com/v1.0/identity/conditionalAccess/namedLocations?$filter=displayName eq '@{variables('blacklist')}'"
+                                    },
+                                    "runAfter": {},
+                                    "type": "Http"
+                                },
+                                "If_single_IP_AAD": {
+                                    "actions": {
+                                        "Set_newIpAddress": {
+                                            "inputs": {
+                                                "name": "newIpAddress",
+                                                "value": {
+                                                    "cidrAddress": "@{concat(triggerBody()?['ipAddress'], '/32')}"
+                                                }
+                                            },
+                                            "runAfter": {},
+                                            "type": "SetVariable"
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Set_newIpAddress_range": {
+                                                "inputs": {
+                                                    "name": "newIpAddress",
+                                                    "value": {
+                                                        "cidrAddress": "@{triggerBody()?['ipAddress']}"
+                                                    }
+                                                },
+                                                "runAfter": {},
+                                                "type": "SetVariable"
+                                            }
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": {
+                                                    "contains": [
+                                                        "@triggerBody()?['ipAddress']",
+                                                        "/"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {
+                                        "Set_ipRanges": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "If"
+                                },
+                                "Set_ipRanges": {
+                                    "inputs": {
+                                        "name": "ipRanges",
+                                        "value": "@body('Get_blacklist')?['value']?[0]?['ipRanges']"
+                                    },
+                                    "runAfter": {
+                                        "Get_blacklist": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_requestBodyMcas": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Azure_Sentinel": {
+                            "actions": {
+                                "Add_ip_to_Sentinel_IOCs": {
+                                    "description": "IOC added for 30 days",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://graph.microsoft.com/",
+                                            "clientId": "[parameters('servicePrincipal-clientId')]",
+                                            "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                            "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                            "type": "ActiveDirectoryOAuth"
+                                        },
+                                        "body": "@variables('requestBodySentinel')",
+                                        "headers": {
+                                            "content-type": "application/json"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://graph.microsoft.com/beta/security/tiIndicators"
+                                    },
+                                    "runAfter": {
+                                        "If_single_IP_Sentinel": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "If_single_IP_Sentinel": {
+                                    "actions": {
+                                        "Set_requestBody_single_IP": {
+                                            "inputs": {
+                                                "name": "requestBodySentinel",
+                                                "value": "{\n    \"action\": \"block\",\n    \"description\": \"IOC added by automation\",\n    \"expirationDateTime\": \"@{addDays(utcNow(), 30)}\",\n    \"networkIPv4\": \"@{triggerBody()?['ipAddress']}\",\n    \"targetProduct\": \"Azure Sentinel\",\n    \"threatType\": \"WatchList\",\n    \"tlpLevel\": \"green\"\n}"
+                                            },
+                                            "runAfter": {},
+                                            "type": "SetVariable"
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Set_requestBody_network": {
+                                                "inputs": {
+                                                    "name": "requestBodySentinel",
+                                                    "value": "{\n    \"action\": \"block\",\n    \"description\": \"IOC added by automation\",\n    \"expirationDateTime\": \"@{addDays(utcNow(), 30)}\",\n    \"networkCidrBlock\": \"@{triggerBody()?['ipAddress']}\",\n    \"targetProduct\": \"Azure Sentinel\",\n    \"threatType\": \"WatchList\",\n    \"tlpLevel\": \"green\"\n}"
+                                                },
+                                                "runAfter": {},
+                                                "type": "SetVariable"
+                                            }
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": {
+                                                    "contains": [
+                                                        "@triggerBody()?['ipAddress']",
+                                                        "/"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {},
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "Azure_AD_named_locations": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "MCAS": {
+                            "actions": {
+                                "Add_ip_to_MCAS_risky_ranges": {
+                                    "description": "Add ip to MCAS risky ranges",
+                                    "inputs": {
+                                        "body": "@variables('requestBodyMcas')",
+                                        "headers": {
+                                            "Authorization": "[concat('token ',parameters('mcas-apiToken'))]"
+                                        },
+                                        "method": "POST",
+                                        "uri": "@{parameters('mcas-tenantUrl')}/api/v1/subnet/create_rule/"
+                                    },
+                                    "runAfter": {
+                                        "If_single_IP_MCAS": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http"
+                                },
+                                "If_single_IP_MCAS": {
+                                    "actions": {
+                                        "Set_requestBodyMcas_ip": {
+                                            "inputs": {
+                                                "name": "requestBodyMcas",
+                                                "value": "{\n  \"name\":\"@{concat('Risky_', guid())}\",\n  \"category\":3,\n  \"subnets\":[\n    \"@{concat(triggerBody()?['ipAddress'], '/32')}\"\n  ]\n}"
+                                            },
+                                            "runAfter": {},
+                                            "type": "SetVariable"
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {
+                                            "Set_requestBodyMcas_network": {
+                                                "inputs": {
+                                                    "name": "requestBodyMcas",
+                                                    "value": "{\n  \"name\":\"@{concat('Risky_', guid())}\",\n  \"category\":3,\n  \"subnets\":[\n    \"@{triggerBody()?['ipAddress']}\"\n  ]\n}"
+                                                },
+                                                "runAfter": {},
+                                                "type": "SetVariable"
+                                            }
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": {
+                                                    "contains": [
+                                                        "@triggerBody()?['ipAddress']",
+                                                        "/"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {},
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "Azure_AD_named_locations": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        },
+                        "Microsoft_Defender_for_Endpoint": {
+                            "actions": {
+                                "If_singe_IP_MDE": {
+                                    "actions": {
+                                        "Add_ip_to_MDE_IOCs": {
+                                            "inputs": {
+                                                "authentication": {
+                                                    "audience": "https://api.securitycenter.microsoft.com/",
+                                                    "clientId": "[parameters('servicePrincipal-clientId')]",
+                                                    "secret": "[parameters('servicePrincipal-clientSecret')]",
+                                                    "tenant": "[parameters('servicePrincipal-tenantId')]",
+                                                    "type": "ActiveDirectoryOAuth"
+                                                },
+                                                "body": {
+                                                    "action": "AlertAndBlock",
+                                                    "application": null,
+                                                    "description": "IOC added by automation",
+                                                    "expirationTime": "@{addDays(utcNow(), 30)}",
+                                                    "indicatorType": "IpAddress",
+                                                    "indicatorValue": "@{triggerBody()?['ipAddress']}",
+                                                    "recommendedActions": "Review after expiration",
+                                                    "severity": "Medium",
+                                                    "title": "Malicious IP"
+                                                },
+                                                "headers": {
+                                                    "content-type": "application/json"
+                                                },
+                                                "method": "POST",
+                                                "uri": "https://api.securitycenter.microsoft.com/api/indicators"
+                                            },
+                                            "runAfter": {},
+                                            "type": "Http"
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": {
+                                                    "contains": [
+                                                        "@triggerBody()?['ipAddress']",
+                                                        "/"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {},
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "Azure_AD_named_locations": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Scope"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                }
+            }
+        }
+    ],
+    "outputs": {
+
+        "logicAppUrl": {
+            "type": "string",
+            "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/manual'), '2016-06-01').value]"
+        }
+    }
+}
